@@ -1,0 +1,7 @@
+name: FedEx (Commerce Shipping)
+type: module
+description: 'Provides FedEx integration with Commerce Shipping.'
+package: Commerce (shipping)
+core: 8.x
+dependencies:
+  - commerce_shipping
