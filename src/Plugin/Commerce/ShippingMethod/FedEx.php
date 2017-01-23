@@ -259,7 +259,7 @@ class FedEx extends ShippingMethodBase {
 
     $requestedPackageLineItems[] = $lineItem;
 
-    // TODO: Loop through items and determine the number of packages
+    // TODO: Loop through items in shipment and add to $requestedPackageLineItems.
 
     return $requestedPackageLineItems;
   }
