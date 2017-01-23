@@ -1,0 +1,3 @@
+services:
+  commerce_fedex.fedex_service:
+    class: Drupal\commerce_fedex\FedExServiceManager
