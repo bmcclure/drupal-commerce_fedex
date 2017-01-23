@@ -192,6 +192,8 @@ class FedEx extends ShippingMethodBase {
 
       }
     }
+    
+    // TODO: Replace test code in the rest of the function with actual code that completes the above request.
 
     $rates[] = new ShippingRate('0', $this->services['fedex_ground'], new Price(0.00, 'USD'));
 
