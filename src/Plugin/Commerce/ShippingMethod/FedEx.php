@@ -2,6 +2,7 @@
 
 namespace Drupal\commerce_fedex\Plugin\Commerce\ShippingMethod;
 
+use Arkitecht\FedEx\Enums\ServiceType;
 use Arkitecht\FedEx\Services\RateService;
 use Arkitecht\FedEx\Structs\Address;
 use Arkitecht\FedEx\Structs\Party;
@@ -48,15 +49,35 @@ class FedEx extends ShippingMethodBase {
     parent::__construct($configuration, $plugin_id, $plugin_definition, $package_type_manager);
 
     $services = [
-      'ground' => 'FedEx Ground',
-      'ground_home_delivery' => 'FedEx Ground Home Delivery',
-      'standard_overnight' => 'FedEx Standard Overnight',
-      'priority_overnight' => 'FedEx Priority Overnight',
-      'first_overnight' => 'FedEx First Overnight',
-      'second_day' => 'FedEx 2nd Day',
-      'express_saver' => 'FedEx Express Saver',
-      'international_economy' => 'FedEx International Economy',
-      'international_priority' => 'FedEx International Priority',
+      ServiceType::VALUE_EUROPE_FIRST_INTERNATIONAL_PRIORITY  => 'FedEx Europe First International Priority',
+      ServiceType::VALUE_FEDEX_1_DAY_FREIGHT  => 'FedEx 1st Day Freight',
+      ServiceType::VALUE_FEDEX_2_DAY  => 'FedEx 2nd Day',
+      ServiceType::VALUE_FEDEX_2_DAY_AM  => 'FedEx 2nd Day AM',
+      ServiceType::VALUE_FEDEX_2_DAY_FREIGHT  => 'FedEx 2nd Day Freight',
+      ServiceType::VALUE_FEDEX_3_DAY_FREIGHT  => 'FedEx 3rd Day Freight',
+      ServiceType::VALUE_FEDEX_DISTANCE_DEFERRED  => 'FedEx Distance Deferred',
+      ServiceType::VALUE_FEDEX_EXPRESS_SAVER  => 'FedEx Express Saver',
+      ServiceType::VALUE_FEDEX_FIRST_FREIGHT  => 'FedEx First Freight',
+      ServiceType::VALUE_FEDEX_FREIGHT_ECONOMY  => 'FedEx Freight Economy',
+      ServiceType::VALUE_FEDEX_FREIGHT_PRIORITY  => 'FedEx Freight Priority',
+      ServiceType::VALUE_FEDEX_GROUND  => 'FedEx Ground',
+      ServiceType::VALUE_FEDEX_NEXT_DAY_AFTERNOON  => 'FedEx Next Day Afternoon',
+      ServiceType::VALUE_FEDEX_NEXT_DAY_EARLY_MORNING  => 'FedEx Next Day Early Morning',
+      ServiceType::VALUE_FEDEX_NEXT_DAY_END_OF_DAY  => 'FedEx Next Day End of Day',
+      ServiceType::VALUE_FEDEX_NEXT_DAY_FREIGHT  => 'FedEx Next Day Freight',
+      ServiceType::VALUE_FEDEX_NEXT_DAY_MID_MORNING  => 'FedEx Next Day Mid Morning',
+      ServiceType::VALUE_FIRST_OVERNIGHT  => 'FedEx First Overnight',
+      ServiceType::VALUE_GROUND_HOME_DELIVERY  => 'FedEx Ground Home Delivery',
+      ServiceType::VALUE_INTERNATIONAL_ECONOMY  => 'FedEx International Economy',
+      ServiceType::VALUE_INTERNATIONAL_ECONOMY_FREIGHT  => 'FedEx International Economy Freight',
+      ServiceType::VALUE_INTERNATIONAL_FIRST  => 'FedEx International First',
+      ServiceType::VALUE_INTERNATIONAL_PRIORITY  => 'FedEx International Priority',
+      ServiceType::VALUE_INTERNATIONAL_PRIORITY_FREIGHT  => 'FedEx International Priority Freight',
+      ServiceType::VALUE_PRIORITY_OVERNIGHT  => 'FedEx Priority Overnight',
+      ServiceType::VALUE_SAME_DAY  => 'FedEx Same Day',
+      ServiceType::VALUE_SAME_DAY_CITY  => 'FedEx Same Day City',
+      ServiceType::VALUE_SMART_POST  => 'FedEx Smart Post',
+      ServiceType::VALUE_STANDARD_OVERNIGHT  => 'FedEx Standard Overnight',
     ];
 
     foreach ($services as $id => $name) {
