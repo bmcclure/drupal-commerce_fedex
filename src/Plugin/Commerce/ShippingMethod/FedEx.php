@@ -106,6 +106,14 @@ class FedEx extends ShippingMethodBase {
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
     $form = parent::buildConfigurationForm($form, $form_state);
+    $services = array_map(function ($service) {
+      return $service->getLabel();
+    }, $this->services);
+    // Select all services by default.
+    if (empty($this->configuration['services'])) {
+      $service_ids = array_keys($services);
+      $this->configuration['services'] = array_combine($service_ids, $service_ids);
+    }
 
     $form['mode'] = [
       '#type' => 'radios',
@@ -165,12 +173,13 @@ class FedEx extends ShippingMethodBase {
       '#type' => 'checkboxes',
       '#title' => $this->t('Enabled services'),
       '#description' => $this->t('Choose which services to offer at checkout.'),
-      '#options' => $this->getServices(),
+      '#options' => $services,
       '#default_value' => $this->configuration['services']
     ];
 
     return $form;
   }
+
 
   /**
    * {@inheritdoc}
@@ -188,6 +197,9 @@ class FedEx extends ShippingMethodBase {
       $this->configuration['services'] = array_keys(array_filter($values['services']['enabled_services']));
 
       if (!empty($values['api_information']['api_password'])) {
+
+        // @todo Fix this, password isn't saved if not entered every time
+
         $this->configuration['api_password'] = $values['api_information']['api_password'];
       }
     }
