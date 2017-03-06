@@ -165,8 +165,8 @@ class FedEx extends ShippingMethodBase {
       '#type' => 'checkboxes',
       '#title' => $this->t('Enabled services'),
       '#description' => $this->t('Choose which services to offer at checkout.'),
-      '#options' => $this->getServiceOptions(),
-      '#default_value' => $this->configuration['enabled_services']
+      '#options' => $this->getServices(),
+      '#default_value' => $this->configuration['services']
     ];
 
     return $form;
@@ -185,7 +185,7 @@ class FedEx extends ShippingMethodBase {
       $this->configuration['api_key'] = $values['api_information']['api_key'];
       $this->configuration['account_number'] = $values['api_information']['account_number'];
       $this->configuration['meter_number'] = $values['api_information']['meter_number'];
-      $this->configuration['enabled_services'] = array_keys(array_filter($values['services']['enabled_services']));
+      $this->configuration['services'] = array_keys(array_filter($values['services']['enabled_services']));
 
       if (!empty($values['api_information']['api_password'])) {
         $this->configuration['api_password'] = $values['api_information']['api_password'];
@@ -197,6 +197,7 @@ class FedEx extends ShippingMethodBase {
    * {@inheritdoc}
    */
   public function calculateRates(ShipmentInterface $shipment) {
+
     /** @var FedExServiceManager $fedEx */
     $fedEx = \Drupal::service('commerce_fedex.fedex_service');
 
@@ -204,28 +205,18 @@ class FedEx extends ShippingMethodBase {
 
     $response = $rateService->getRates($this->rateRequest($rateService, $shipment));
 
-    $rates = [];
-
     if ($response->getHighestSeverity() == 'SUCCESS') {
-      dpm($response->getRateReplyDetails());
-
-      foreach ($response->getRateReplyDetails() as $rateDetails) {
-
+      $details = $response->getRateReplyDetails();
+      $rates = [];
+      foreach ($details as $rateDetails) {
+        if (in_array($rateDetails->getServiceType(), array_keys($this->getServices()))){
+          $ratedShipmentDetails = $rateDetails->getRatedShipmentDetails()[0];
+          $shipmentRateDetails = $ratedShipmentDetails->getShipmentRateDetail();
+          $cost = $shipmentRateDetails->getTotalNetChargeWithDutiesAndTaxes();
+          $rates[] = new ShippingRate($rateDetails->getServiceType(), $this->services[$rateDetails->getServiceType()], new Price($cost->getAmount(), $cost->getCurrency()));
+        }
       }
     }
-    
-    // TODO: Replace test code in the rest of the function with actual code that completes the above request.
-
-    $rates[] = new ShippingRate('0', $this->services['fedex_ground'], new Price(0.00, 'USD'));
-
-    // Rate IDs aren't used in a flat rate scenario because there's always a
-    // single rate per plugin, and there's no support for purchasing rates.
-    //$rate_id = 0;
-    //$amount = $this->configuration['rate_amount'];
-    //$amount = new Price($amount['number'], $amount['currency_code']);
-    //$rates = [];
-    //$rates[] = new ShippingRate($rate_id, $this->services['flat_rate'], $amount);
-
     return $rates;
   }
 
@@ -333,25 +324,5 @@ class FedEx extends ShippingMethodBase {
       ->setRequestedShipment($this->getFedExShipment($shipment));
 
     return $rateRequest;
-  }
-
-  /**
-   * Returns an array of service options for use as radio or checkbox values.
-   *
-   * @return array
-   *   The options array.
-   */
-  protected function getServiceOptions() {
-    $options = [];
-
-    /**
-     * @var string $id
-     * @var ShippingService $service
-     */
-    foreach ($this->services as $service) {
-      $options[$service->getId()] = $service->getLabel();
-    }
-
-    return $options;
   }
 }
