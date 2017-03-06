@@ -269,9 +269,28 @@ class FedEx extends ShippingMethodBase {
   }
 
   protected function getTotalWeight(ShipmentInterface $shipment) {
-    $weight = $shipment->getWeight();
 
-    return new Weight($weight->getUnit(), $weight->getNumber());
+    //convert between /Drupal/physical/Weight and /Arkitecht/Fedex/structs/Weight
+
+    $weight = $shipment->getWeight();
+    $number = $weight->getNumber();
+
+    switch ($weight->getUnit()){
+      case \Drupal\physical\WeightUnit::GRAM:
+        $number /=1000;
+      case \Drupal\physical\WeightUnit::KILOGRAM:
+        $unit = \Arkitecht\FedEx\Enums\WeightUnits::VALUE_KG;
+        break;
+      case \Drupal\physical\WeightUnit::OUNCE:
+        $number /=16;
+      case \Drupal\physical\WeightUnit::POUND:
+        $unit = \Arkitecht\FedEx\Enums\WeightUnits::VALUE_LB;
+        break;
+      default:
+        throw new \Exception("Invalid Units for Weight");
+    }
+
+    return new Weight($unit, $number);
   }
 
   protected function getRequestedPackageLineItems(ShipmentInterface $shipment) {
