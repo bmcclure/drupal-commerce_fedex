@@ -248,7 +248,11 @@ class FedEx extends ShippingMethodBase {
 
   protected function getRecipient(ShipmentInterface $shipment) {
     /** @var AddressInterface $recipientAddress */
-    $recipientAddress = $shipment->getShippingProfile()->get('address');
+    $profile = $shipment->getShippingProfile();
+    if(!$profile){
+      return;
+    }
+    $recipientAddress = $profile->get('address')->first();
 
     $recipient = new Party();
     $recipient->setAddress(new Address(
