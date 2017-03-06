@@ -303,7 +303,7 @@ class FedEx extends ShippingMethodBase {
       ->setWeight($totalWeight)
       ->setGroupPackageCount(1);
 
-    $requestedPackageLineItems[] = $lineItem;
+    $requestedPackageLineItems = $lineItem;
 
     // TODO: Loop through items in shipment and add to $requestedPackageLineItems.
 
