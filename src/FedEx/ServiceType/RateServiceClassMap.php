@@ -1,12 +1,12 @@
 <?php
 
-namespace Drupal\commerce_fedex\FedEx;
+namespace Drupal\commerce_fedex\FedEx\ServiceType;
 
 /**
  * Class which returns the class map definition
  * @package
  */
-class ClassMap
+class RateServiceClassMap
 {
     /**
      * Returns the mapping between the WSDL Structs and generated Structs' classes
