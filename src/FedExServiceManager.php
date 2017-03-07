@@ -2,15 +2,15 @@
 
 namespace Drupal\commerce_fedex;
 
-use Arkitecht\FedEx\Services\RateService;
-use Arkitecht\FedEx\Services\ShipService;
-use Arkitecht\FedEx\Services\TrackService;
-use Arkitecht\FedEx\Structs\ClientDetail;
-use Arkitecht\FedEx\Structs\ProcessShipmentRequest;
-use Arkitecht\FedEx\Structs\RateRequest;
-use Arkitecht\FedEx\Structs\TrackRequest;
-use Arkitecht\FedEx\Structs\WebAuthenticationCredential;
-use Arkitecht\FedEx\Structs\WebAuthenticationDetail;
+use Drupal\commerce_fedex\FedEx\ServiceType\RateService;
+//use Drupal\commerce_fedex\FedEx\ServiceType\ShipService;
+//use Drupal\commerce_fedex\FedEx\ServiceType\TrackService;
+use Drupal\commerce_fedex\FedEx\StructType\ClientDetail;
+//use Drupal\commerce_fedex\FedEx\StructType\ProcessShipmentRequest;
+use Drupal\commerce_fedex\FedEx\StructType\RateRequest;
+//use Drupal\commerce_fedex\FedEx\StructType\TrackRequest;
+use Drupal\commerce_fedex\FedEx\StructType\WebAuthenticationCredential;
+use Drupal\commerce_fedex\FedEx\StructType\WebAuthenticationDetail;
 
 class FedExServiceManager {
   public function getRateRequest(array $configuration) {
@@ -28,7 +28,7 @@ class FedExServiceManager {
     return $rateService;
   }
 
-  public function getTrackRequest(array $configuration) {
+  /*public function getTrackRequest(array $configuration) {
     $trackRequest = new TrackRequest(
       $this->getWebAuthenticationDetail($configuration),
       $this->getClientDetail($configuration)
@@ -56,7 +56,7 @@ class FedExServiceManager {
     $shipService = new ShipService($wsdlOptions, $resetSoapClient, ($configuration['mode'] == 'test'));
 
     return $shipService;
-  }
+  } */
 
   public function getWebAuthenticationDetail(array $configuration) {
     $webAuthenticationDetail = new WebAuthenticationDetail();

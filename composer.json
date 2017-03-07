@@ -7,6 +7,8 @@
   "require": {
     "drupal/commerce": "~2",
     "drupal/commerce_shipping": "~2",
-    "arkitecht/fedex-php": "*"
+    "php": ">=5.3.3",
+    "ext-soap": "*",
+    "wsdltophp/packagebase": "dev-master"
   }
 }

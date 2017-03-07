@@ -2,13 +2,13 @@
 
 namespace Drupal\commerce_fedex\Plugin\Commerce\ShippingMethod;
 
-use Arkitecht\FedEx\Enums\ServiceType;
-use Arkitecht\FedEx\Services\RateService;
-use Arkitecht\FedEx\Structs\Address;
-use Arkitecht\FedEx\Structs\Party;
-use Arkitecht\FedEx\Structs\RequestedPackageLineItem;
-use Arkitecht\FedEx\Structs\RequestedShipment;
-use Arkitecht\FedEx\Structs\Weight;
+use Drupal\commerce_fedex\FedEx\EnumType\ServiceType;
+use Drupal\commerce_fedex\FedEx\ServiceType\RateService;
+use Drupal\commerce_fedex\FedEx\StructType\Address;
+use Drupal\commerce_fedex\FedEx\StructType\Party;
+use Drupal\commerce_fedex\FedEx\StructType\RequestedPackageLineItem;
+use Drupal\commerce_fedex\FedEx\StructType\RequestedShipment;
+use Drupal\commerce_fedex\FedEx\StructType\Weight;
 use Drupal\address\AddressInterface;
 use Drupal\commerce_fedex\FedExServiceManager;
 use Drupal\commerce_price\Price;
