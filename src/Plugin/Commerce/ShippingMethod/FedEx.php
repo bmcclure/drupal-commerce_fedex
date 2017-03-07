@@ -233,15 +233,22 @@ class FedEx extends ShippingMethodBase {
 
   protected function getShipper(ShipmentInterface $shipment) {
     $storeAddress = $shipment->getOrder()->getStore()->getAddress();
-
+    $streetLines = [];
+    if ($storeAddress->getAddressLine1()){
+      $streetLines[] = $storeAddress->getAddressLine1();
+    }
+    if ($storeAddress->getAddressLine2()){
+      $streetLines[] = $storeAddress->getAddressLine2();
+    }
     $shipper = new Party();
     $shipper->setAddress(new Address(
-      $storeAddress->getAddressLine1(),
+      $streetLines,
       $storeAddress->getLocality(),
       $storeAddress->getAdministrativeArea(),
       $storeAddress->getPostalCode(),
       NULL,
       $storeAddress->getCountryCode(),
+      NULL,
       FALSE
     ));
 
@@ -255,15 +262,23 @@ class FedEx extends ShippingMethodBase {
       return;
     }
     $recipientAddress = $profile->get('address')->first();
+    $streetLines = [];
+    if ($recipientAddress->getAddressLine1()){
+      $streetLines[] = $recipientAddress->getAddressLine1();
+    }
+    if ($recipientAddress->getAddressLine2()){
+      $streetLines[] = $recipientAddress->getAddressLine2();
+    }
 
     $recipient = new Party();
     $recipient->setAddress(new Address(
-      $recipientAddress->getAddressLine1(),
+      $streetLines,
       $recipientAddress->getLocality(),
       $recipientAddress->getAdministrativeArea(),
       $recipientAddress->getPostalCode(),
       NULL,
       $recipientAddress->getCountryCode(),
+      NULL,
       FALSE
     ));
 
@@ -305,7 +320,7 @@ class FedEx extends ShippingMethodBase {
       ->setWeight($totalWeight)
       ->setGroupPackageCount(1);
 
-    $requestedPackageLineItems = $lineItem;
+    $requestedPackageLineItems[] = $lineItem;
 
     // TODO: Loop through items in shipment and add to $requestedPackageLineItems.
 
