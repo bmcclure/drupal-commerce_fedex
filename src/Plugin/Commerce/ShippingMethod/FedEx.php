@@ -3,12 +3,17 @@
 namespace Drupal\commerce_fedex\Plugin\Commerce\ShippingMethod;
 
 use Arkitecht\FedEx\Enums\ServiceType;
+use Arkitecht\FedEx\Enums\PhysicalPackagingType;
 use Arkitecht\FedEx\Services\RateService;
 use Arkitecht\FedEx\Structs\Address;
+use Arkitecht\FedEx\Structs\Dimensions;
+use Arkitecht\FedEx\Structs\Money;
 use Arkitecht\FedEx\Structs\Party;
 use Arkitecht\FedEx\Structs\RequestedPackageLineItem;
 use Arkitecht\FedEx\Structs\RequestedShipment;
-use Arkitecht\FedEx\Structs\Weight;
+use Arkitecht\FedEx\Structs\Weight as FedexWeight;
+use Arkitecht\FedEx\Enums\WeightUnits as FedexWeightUnits;
+use Arkitecht\FedEx\Enums\LinearUnits as FedexLengthUnits;
 use Drupal\address\AddressInterface;
 use Drupal\commerce_fedex\FedExServiceManager;
 use Drupal\commerce_price\Price;
@@ -16,10 +21,16 @@ use Drupal\commerce_shipping\Annotation\CommerceShippingMethod;
 use Drupal\commerce_shipping\Entity\ShipmentInterface;
 use Drupal\commerce_shipping\PackageTypeManagerInterface;
 use Drupal\commerce_shipping\Plugin\Commerce\EntityTrait\OrderShippable;
+use Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageType;
+use Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageTypeInterface;
 use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodBase;
+
 use Drupal\commerce_shipping\ShipmentItem;
 use Drupal\commerce_shipping\ShippingRate;
 use Drupal\commerce_shipping\ShippingService;
+use Drupal\physical\Weight as PhysicalWeight;
+use Drupal\physical\WeightUnit as PhysicalWeightUnits;
+use Drupal\physical\LengthUnit as PhysicalLengthUnits;
 use Drupal\Core\Annotation\Translation;
 use Drupal\Core\Form\FormStateInterface;
 
@@ -213,9 +224,11 @@ class FedEx extends ShippingMethodBase {
     $fedEx = \Drupal::service('commerce_fedex.fedex_service');
 
     $rateService = $fedEx->getRateService($this->configuration);
-
-    $response = $rateService->getRates($this->rateRequest($rateService, $shipment));
-
+    $rateRequest = $this->rateRequest($rateService, $shipment);
+  //  ksm($rateRequest);
+    $response = $rateService->getRates($rateRequest);
+    ksm($response);
+    $rates = [];
     if ($response->getHighestSeverity() == 'SUCCESS') {
       $details = $response->getRateReplyDetails();
       $rates = [];
@@ -271,57 +284,50 @@ class FedEx extends ShippingMethodBase {
   }
 
   protected function getTotalWeight(ShipmentInterface $shipment) {
-
-    //convert between /Drupal/physical/Weight and /Arkitecht/Fedex/structs/Weight
-
-    $weight = $shipment->getWeight();
-    $number = $weight->getNumber();
-
-    switch ($weight->getUnit()){
-      case \Drupal\physical\WeightUnit::GRAM:
-        $number /=1000;
-      case \Drupal\physical\WeightUnit::KILOGRAM:
-        $unit = \Arkitecht\FedEx\Enums\WeightUnits::VALUE_KG;
-        break;
-      case \Drupal\physical\WeightUnit::OUNCE:
-        $number /=16;
-      case \Drupal\physical\WeightUnit::POUND:
-        $unit = \Arkitecht\FedEx\Enums\WeightUnits::VALUE_LB;
-        break;
-      default:
-        throw new \Exception("Invalid Units for Weight");
-    }
-
-    return new Weight($unit, $number);
+    return $this->_physicalWeightToFedex($shipment->getWeight());
   }
 
   protected function getRequestedPackageLineItems(ShipmentInterface $shipment) {
     $requestedPackageLineItems = [];
+    $shipmentItems = $shipment->getItems();
+    $package = $shipment->getPackageType();
+    foreach($shipmentItems as $delta => $shipmentItem){
 
-    $totalWeight = $this->getTotalWeight($shipment);
+      $requestedPackageLineItems[] = new RequestedPackageLineItem(
+        $delta,
+        NULL,
+        1,
+        NULL,
+        new Money($shipmentItem->getDeclaredValue()->getCurrencyCode(), $shipmentItem->getDeclaredValue()->getNumber()),
+        $this->_physicalWeightToFedex($shipmentItem->getWeight()),
+        $this->_packageToFedexDimensions($package),
+        PhysicalPackagingType::VALUE_BOX,
+        $shipmentItem->getTitle(),
+        NULL,NULL,NULL,NULL
+      );
 
-    $lineItem = new RequestedPackageLineItem();
-    $lineItem
-      ->setWeight($totalWeight)
-      ->setGroupPackageCount(1);
-
-    $requestedPackageLineItems = $lineItem;
-
+    }
     // TODO: Loop through items in shipment and add to $requestedPackageLineItems.
 
     return $requestedPackageLineItems;
   }
 
   protected function getFedExShipment(ShipmentInterface $shipment) {
+   // ksm($shipment);
     $lineItems = $this->getRequestedPackageLineItems($shipment);
-
+    ksm($lineItems);
     $fedExShipment = new RequestedShipment();
     $fedExShipment->setTotalWeight($this->getTotalWeight($shipment));
     $fedExShipment->setShipper($this->getShipper($shipment));
     $fedExShipment->setRecipient($this->getRecipient($shipment));
-    $fedExShipment->setRequestedPackageLineItems($lineItems);
     $fedExShipment->setPackageCount(count($lineItems));
+   // foreach($lineItems as $lineItem) {
+     // $fedExShipment->setRequestedPackageLineItems($lineItem);
+   // }
 
+    $fedExShipment->RequestedPackageLineItems = $lineItems;
+    $fedExShipment->setPackageCount(count($lineItems));
+    ksm($fedExShipment);
     return $fedExShipment;
   }
 
@@ -335,5 +341,66 @@ class FedEx extends ShippingMethodBase {
       ->setRequestedShipment($this->getFedExShipment($shipment));
 
     return $rateRequest;
+  }
+
+  private function _physicalWeightToFedex(PhysicalWeight $weight){
+    /** convert between \Drupal\physical\Weight and \Arkitecht\Fedex\structs\Weight */
+
+    $number = $weight->getNumber();
+
+    switch ($weight->getUnit()){
+      case PhysicalWeightUnits::GRAM:
+        $number /=1000;
+      case PhysicalWeightUnits::KILOGRAM:
+        $unit = FedexWeightUnits::VALUE_KG;
+        break;
+      case PhysicalWeightUnits::OUNCE:
+        $number /=16;
+      case PhysicalWeightUnits::POUND:
+        $unit = FedexWeightUnits::VALUE_LB;
+        break;
+      default:
+        throw new \Exception("Invalid Units for Weight");
+    }
+    return new FedexWeight($unit, $number);
+  }
+
+  private function _packageToFedexDimensions(PackageTypeInterface $package){
+    $length = $package->getLength();
+    $width = $package->getWidth();
+    $height = $package->getHeight();
+    if ($length->getUnit() != $width->getUnit()){
+      $width = $width->convert($length->getUnit());
+    }
+    if ($length->getUnit() != $height->getUnit()){
+      $height = $height->convert($length->getUnit());
+    }
+
+    switch ($length->getUnit()){
+      case PhysicalLengthUnits::MILLIMETER:
+        $length = $length->divide(1000);
+        $width = $width->divide(1000);
+        $height = $height->divide(1000);
+      case PhysicalLengthUnits::CENTIMETER:
+        $unit = FedexLengthUnits::VALUE_CM;
+        break;
+      case PhysicalLengthUnits::METER;
+        $length = $length->multiply(1000);
+        $width = $width->multiply(1000);
+        $height = $height->multiply(1000);
+        $unit = FedexLengthUnits::VALUE_CM;
+        break;
+      case PhysicalLengthUnits::FOOT:
+        $length = $length->multiply(12);
+        $width = $width->multiply(12);
+        $height = $height->multiply(12);
+      case PhysicalLengthUnits::INCH:
+        $unit = FedexLengthUnits::VALUE_IN;
+        break;
+      default:
+        throw new \Exception("Invalid Units for Length");
+    }
+
+    return new Dimensions($length->getNumber(), $width->getNumber(), $height->getNumber(), $unit);
   }
 }
