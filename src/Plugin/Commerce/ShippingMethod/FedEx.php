@@ -2,6 +2,7 @@
 
 namespace Drupal\commerce_fedex\Plugin\Commerce\ShippingMethod;
 
+use Arkitecht\FedEx\Enums\ServiceType;
 use Arkitecht\FedEx\Services\RateService;
 use Arkitecht\FedEx\Structs\Address;
 use Arkitecht\FedEx\Structs\Party;
@@ -48,15 +49,35 @@ class FedEx extends ShippingMethodBase {
     parent::__construct($configuration, $plugin_id, $plugin_definition, $package_type_manager);
 
     $services = [
-      'ground' => 'FedEx Ground',
-      'ground_home_delivery' => 'FedEx Ground Home Delivery',
-      'standard_overnight' => 'FedEx Standard Overnight',
-      'priority_overnight' => 'FedEx Priority Overnight',
-      'first_overnight' => 'FedEx First Overnight',
-      'second_day' => 'FedEx 2nd Day',
-      'express_saver' => 'FedEx Express Saver',
-      'international_economy' => 'FedEx International Economy',
-      'international_priority' => 'FedEx International Priority',
+      ServiceType::VALUE_EUROPE_FIRST_INTERNATIONAL_PRIORITY  => 'FedEx Europe First International Priority',
+      ServiceType::VALUE_FEDEX_1_DAY_FREIGHT  => 'FedEx 1st Day Freight',
+      ServiceType::VALUE_FEDEX_2_DAY  => 'FedEx 2nd Day',
+      ServiceType::VALUE_FEDEX_2_DAY_AM  => 'FedEx 2nd Day AM',
+      ServiceType::VALUE_FEDEX_2_DAY_FREIGHT  => 'FedEx 2nd Day Freight',
+      ServiceType::VALUE_FEDEX_3_DAY_FREIGHT  => 'FedEx 3rd Day Freight',
+      ServiceType::VALUE_FEDEX_DISTANCE_DEFERRED  => 'FedEx Distance Deferred',
+      ServiceType::VALUE_FEDEX_EXPRESS_SAVER  => 'FedEx Express Saver',
+      ServiceType::VALUE_FEDEX_FIRST_FREIGHT  => 'FedEx First Freight',
+      ServiceType::VALUE_FEDEX_FREIGHT_ECONOMY  => 'FedEx Freight Economy',
+      ServiceType::VALUE_FEDEX_FREIGHT_PRIORITY  => 'FedEx Freight Priority',
+      ServiceType::VALUE_FEDEX_GROUND  => 'FedEx Ground',
+      ServiceType::VALUE_FEDEX_NEXT_DAY_AFTERNOON  => 'FedEx Next Day Afternoon',
+      ServiceType::VALUE_FEDEX_NEXT_DAY_EARLY_MORNING  => 'FedEx Next Day Early Morning',
+      ServiceType::VALUE_FEDEX_NEXT_DAY_END_OF_DAY  => 'FedEx Next Day End of Day',
+      ServiceType::VALUE_FEDEX_NEXT_DAY_FREIGHT  => 'FedEx Next Day Freight',
+      ServiceType::VALUE_FEDEX_NEXT_DAY_MID_MORNING  => 'FedEx Next Day Mid Morning',
+      ServiceType::VALUE_FIRST_OVERNIGHT  => 'FedEx First Overnight',
+      ServiceType::VALUE_GROUND_HOME_DELIVERY  => 'FedEx Ground Home Delivery',
+      ServiceType::VALUE_INTERNATIONAL_ECONOMY  => 'FedEx International Economy',
+      ServiceType::VALUE_INTERNATIONAL_ECONOMY_FREIGHT  => 'FedEx International Economy Freight',
+      ServiceType::VALUE_INTERNATIONAL_FIRST  => 'FedEx International First',
+      ServiceType::VALUE_INTERNATIONAL_PRIORITY  => 'FedEx International Priority',
+      ServiceType::VALUE_INTERNATIONAL_PRIORITY_FREIGHT  => 'FedEx International Priority Freight',
+      ServiceType::VALUE_PRIORITY_OVERNIGHT  => 'FedEx Priority Overnight',
+      ServiceType::VALUE_SAME_DAY  => 'FedEx Same Day',
+      ServiceType::VALUE_SAME_DAY_CITY  => 'FedEx Same Day City',
+      ServiceType::VALUE_SMART_POST  => 'FedEx Smart Post',
+      ServiceType::VALUE_STANDARD_OVERNIGHT  => 'FedEx Standard Overnight',
     ];
 
     foreach ($services as $id => $name) {
@@ -85,6 +106,14 @@ class FedEx extends ShippingMethodBase {
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
     $form = parent::buildConfigurationForm($form, $form_state);
+    $services = array_map(function ($service) {
+      return $service->getLabel();
+    }, $this->services);
+    // Select all services by default.
+    if (empty($this->configuration['services'])) {
+      $service_ids = array_keys($services);
+      $this->configuration['services'] = array_combine($service_ids, $service_ids);
+    }
 
     $form['mode'] = [
       '#type' => 'radios',
@@ -144,12 +173,13 @@ class FedEx extends ShippingMethodBase {
       '#type' => 'checkboxes',
       '#title' => $this->t('Enabled services'),
       '#description' => $this->t('Choose which services to offer at checkout.'),
-      '#options' => $this->getServiceOptions(),
-      '#default_value' => $this->configuration['enabled_services']
+      '#options' => $services,
+      '#default_value' => $this->configuration['services']
     ];
 
     return $form;
   }
+
 
   /**
    * {@inheritdoc}
@@ -164,10 +194,12 @@ class FedEx extends ShippingMethodBase {
       $this->configuration['api_key'] = $values['api_information']['api_key'];
       $this->configuration['account_number'] = $values['api_information']['account_number'];
       $this->configuration['meter_number'] = $values['api_information']['meter_number'];
-      $this->configuration['enabled_services'] = array_keys(array_filter($values['services']['enabled_services']));
+      $this->configuration['services'] = array_keys(array_filter($values['services']['enabled_services']));
 
       if (!empty($values['api_information']['api_password'])) {
         $this->configuration['api_password'] = $values['api_information']['api_password'];
+      } else {
+        $this->configuration['api_password'] = $form_state->getCompleteForm()['plugin']['widget'][0]['#default_value']['target_plugin_configuration']['api_password'];
       }
     }
   }
@@ -176,6 +208,7 @@ class FedEx extends ShippingMethodBase {
    * {@inheritdoc}
    */
   public function calculateRates(ShipmentInterface $shipment) {
+
     /** @var FedExServiceManager $fedEx */
     $fedEx = \Drupal::service('commerce_fedex.fedex_service');
 
@@ -183,28 +216,18 @@ class FedEx extends ShippingMethodBase {
 
     $response = $rateService->getRates($this->rateRequest($rateService, $shipment));
 
-    $rates = [];
-
     if ($response->getHighestSeverity() == 'SUCCESS') {
-      dpm($response->getRateReplyDetails());
-
-      foreach ($response->getRateReplyDetails() as $rateDetails) {
-
+      $details = $response->getRateReplyDetails();
+      $rates = [];
+      foreach ($details as $rateDetails) {
+        if (in_array($rateDetails->getServiceType(), array_keys($this->getServices()))){
+          $ratedShipmentDetails = $rateDetails->getRatedShipmentDetails()[0];
+          $shipmentRateDetails = $ratedShipmentDetails->getShipmentRateDetail();
+          $cost = $shipmentRateDetails->getTotalNetChargeWithDutiesAndTaxes();
+          $rates[] = new ShippingRate($rateDetails->getServiceType(), $this->services[$rateDetails->getServiceType()], new Price($cost->getAmount(), $cost->getCurrency()));
+        }
       }
     }
-    
-    // TODO: Replace test code in the rest of the function with actual code that completes the above request.
-
-    $rates[] = new ShippingRate('0', $this->services['fedex_ground'], new Price(0.00, 'USD'));
-
-    // Rate IDs aren't used in a flat rate scenario because there's always a
-    // single rate per plugin, and there's no support for purchasing rates.
-    //$rate_id = 0;
-    //$amount = $this->configuration['rate_amount'];
-    //$amount = new Price($amount['number'], $amount['currency_code']);
-    //$rates = [];
-    //$rates[] = new ShippingRate($rate_id, $this->services['flat_rate'], $amount);
-
     return $rates;
   }
 
@@ -227,7 +250,11 @@ class FedEx extends ShippingMethodBase {
 
   protected function getRecipient(ShipmentInterface $shipment) {
     /** @var AddressInterface $recipientAddress */
-    $recipientAddress = $shipment->getShippingProfile()->get('address');
+    $profile = $shipment->getShippingProfile();
+    if(!$profile){
+      return;
+    }
+    $recipientAddress = $profile->get('address')->first();
 
     $recipient = new Party();
     $recipient->setAddress(new Address(
@@ -244,9 +271,28 @@ class FedEx extends ShippingMethodBase {
   }
 
   protected function getTotalWeight(ShipmentInterface $shipment) {
-    $weight = $shipment->getWeight();
 
-    return new Weight($weight->getUnit(), $weight->getNumber());
+    //convert between /Drupal/physical/Weight and /Arkitecht/Fedex/structs/Weight
+
+    $weight = $shipment->getWeight();
+    $number = $weight->getNumber();
+
+    switch ($weight->getUnit()){
+      case \Drupal\physical\WeightUnit::GRAM:
+        $number /=1000;
+      case \Drupal\physical\WeightUnit::KILOGRAM:
+        $unit = \Arkitecht\FedEx\Enums\WeightUnits::VALUE_KG;
+        break;
+      case \Drupal\physical\WeightUnit::OUNCE:
+        $number /=16;
+      case \Drupal\physical\WeightUnit::POUND:
+        $unit = \Arkitecht\FedEx\Enums\WeightUnits::VALUE_LB;
+        break;
+      default:
+        throw new \Exception("Invalid Units for Weight");
+    }
+
+    return new Weight($unit, $number);
   }
 
   protected function getRequestedPackageLineItems(ShipmentInterface $shipment) {
@@ -259,7 +305,7 @@ class FedEx extends ShippingMethodBase {
       ->setWeight($totalWeight)
       ->setGroupPackageCount(1);
 
-    $requestedPackageLineItems[] = $lineItem;
+    $requestedPackageLineItems = $lineItem;
 
     // TODO: Loop through items in shipment and add to $requestedPackageLineItems.
 
@@ -289,25 +335,5 @@ class FedEx extends ShippingMethodBase {
       ->setRequestedShipment($this->getFedExShipment($shipment));
 
     return $rateRequest;
-  }
-
-  /**
-   * Returns an array of service options for use as radio or checkbox values.
-   *
-   * @return array
-   *   The options array.
-   */
-  protected function getServiceOptions() {
-    $options = [];
-
-    /**
-     * @var string $id
-     * @var ShippingService $service
-     */
-    foreach ($this->services as $service) {
-      $options[$service->getId()] = $service->getLabel();
-    }
-
-    return $options;
   }
 }
