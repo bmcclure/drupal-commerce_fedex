@@ -197,10 +197,9 @@ class FedEx extends ShippingMethodBase {
       $this->configuration['services'] = array_keys(array_filter($values['services']['enabled_services']));
 
       if (!empty($values['api_information']['api_password'])) {
-
-        // @todo Fix this, password isn't saved if not entered every time
-
         $this->configuration['api_password'] = $values['api_information']['api_password'];
+      } else {
+        $this->configuration['api_password'] = $form_state->getCompleteForm()['plugin']['widget'][0]['#default_value']['target_plugin_configuration']['api_password'];
       }
     }
   }
