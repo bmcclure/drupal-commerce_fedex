@@ -1,0 +1,5 @@
+services:
+  commerce_fedex_dangerous.fedex_event_subscriber:
+    class: '\Drupal\commerce_fedex_dangerous\EventSubscriber\FedExEventSubscriber'
+    tags:
+      - { name: 'event_subscriber' }

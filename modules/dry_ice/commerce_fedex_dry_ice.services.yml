@@ -1,0 +1,5 @@
+services:
+  commerce_fedex_dry_ice.fedex_event_subscriber:
+    class: '\Drupal\commerce_fedex_dry_ice\EventSubscriber\FedExEventSubscriber'
+    tags:
+      - { name: 'event_subscriber' }
