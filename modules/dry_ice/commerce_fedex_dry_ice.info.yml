@@ -1,0 +1,7 @@
+name: 'FedEx: Dry Ice (Commerce Shipping)'
+type: module
+description: 'Provides the Dry Ice special service for FedEx.'
+package: Commerce (shipping)
+core: 8.x
+dependencies:
+  - commerce_fedex

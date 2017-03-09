@@ -1,8 +1,9 @@
 <?php
 
-namespace Drupal\commerce_fedex\Plugin\Commerce\EntityTrait;
+namespace Drupal\commerce_fedex_dangerous\Plugin\Commerce\EntityTrait;
 
 use Drupal\commerce\BundleFieldDefinition;
+use Drupal\commerce_fedex\PurchasableEntityHazardousBase;
 
 /**
  * Provides the "fedex_dangerous" trait.

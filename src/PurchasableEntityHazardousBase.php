@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\commerce_fedex\Plugin\Commerce\EntityTrait;
+namespace Drupal\commerce_fedex;
 
 use Drupal\commerce\BundleFieldDefinition;
 use Drupal\commerce\Plugin\Commerce\EntityTrait\EntityTraitBase;
