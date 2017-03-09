@@ -286,6 +286,8 @@ class FedEx extends ShippingMethodBase {
     $requestedPackageLineItems = [];
 
     foreach ($shipment->getItems() as $delta => $shipmentItem) {
+      $cleanTitle = trim(preg_replace('/ +/', ' ', preg_replace('/[^A-Za-z0-9 ]/', ' ', $shipmentItem->getTitle())));
+
       $requestedPackageLineItem = new RequestedPackageLineItem();
       $requestedPackageLineItem
         ->setSequenceNumber($delta + 1)
@@ -297,7 +299,7 @@ class FedEx extends ShippingMethodBase {
         ->setWeight($this->physicalWeightToFedex($shipmentItem->getWeight()))
         ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
         ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
-        ->setItemDescription($shipmentItem->getTitle());
+        ->setItemDescription($cleanTitle);
 
       $requestedPackageLineItems[] = $requestedPackageLineItem;
     }
