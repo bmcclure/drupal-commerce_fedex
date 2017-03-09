@@ -3,6 +3,8 @@
 namespace Drupal\commerce_fedex\Plugin\Commerce\ShippingMethod;
 
 use Drupal\address\AddressInterface;
+use Drupal\commerce_fedex\Event\CommerceFedExEvents;
+use Drupal\commerce_fedex\Event\RateRequestEvent;
 use Drupal\commerce_fedex\FedEx\EnumType\PhysicalPackagingType;
 use Drupal\commerce_fedex\FedEx\ServiceType\RateService;
 use Drupal\commerce_fedex\FedEx\StructType\Address;
@@ -18,6 +20,7 @@ use Drupal\commerce_fedex\FedExServiceManager;
 use Drupal\commerce_price\Price;
 use Drupal\commerce_shipping\Annotation\CommerceShippingMethod;
 use Drupal\commerce_shipping\Entity\ShipmentInterface;
+use Drupal\commerce_shipping\PackageTypeManagerInterface;
 use Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageTypeInterface;
 use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodBase;
 use Drupal\commerce_shipping\ShippingRate;
@@ -26,6 +29,8 @@ use Drupal\physical\WeightUnit as PhysicalWeightUnits;
 use Drupal\physical\LengthUnit as PhysicalLengthUnits;
 use Drupal\Core\Annotation\Translation;
 use Drupal\Core\Form\FormStateInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Provides the FedEx shipping method.
@@ -67,6 +72,46 @@ use Drupal\Core\Form\FormStateInterface;
  * )
  */
 class FedEx extends ShippingMethodBase {
+
+  /**
+   * The event dispatcher.
+   *
+   * @var EventDispatcherInterface
+   */
+  protected $eventDispatcher;
+
+  /**
+   * Constructs a new ShippingMethodBase object.
+   *
+   * @param array $configuration
+   *   A configuration array containing information about the plugin instance.
+   * @param string $plugin_id
+   *   The plugin_id for the plugin instance.
+   * @param mixed $plugin_definition
+   *   The plugin implementation definition.
+   * @param \Drupal\commerce_shipping\PackageTypeManagerInterface $package_type_manager
+   *   The package type manager.
+   * @param \Symfony\Component\EventDispatcher\EventDispatcherInterface $event_dispatcher
+   *   The event dispatcher.
+   */
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, PackageTypeManagerInterface $package_type_manager, EventDispatcherInterface $event_dispatcher) {
+    $this->eventDispatcher = $event_dispatcher;
+
+    parent::__construct($configuration, $plugin_id, $plugin_definition, $package_type_manager);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public static function create(ContainerInterface $container, array $configuration, $plugin_id, $plugin_definition) {
+    return new static(
+      $configuration,
+      $plugin_id,
+      $plugin_definition,
+      $container->get('plugin.manager.commerce_package_type'),
+      $container->get('event_dispatcher')
+    );
+  }
 
   /**
    * {@inheritdoc}
@@ -299,6 +344,11 @@ class FedEx extends ShippingMethodBase {
     $rateRequest
       ->setVersion($rateService->version)
       ->setRequestedShipment($this->getFedExShipment($shipment));
+
+    $rateRequestEvent = new RateRequestEvent($rateRequest, $rateService, $shipment);
+
+    // Allow other modules to alter the rate request before it's submitted.
+    $this->eventDispatcher->dispatch(CommerceFedExEvents::BEFORE_RATE_REQUEST, $rateRequestEvent);
 
     return $rateRequest;
   }

@@ -2,7 +2,6 @@
 
 namespace Drupal\commerce_fedex_hazardous\Plugin\Commerce\EntityTrait;
 
-use Drupal\commerce\BundleFieldDefinition;
 use Drupal\commerce_fedex\PurchasableEntityHazardousBase;
 
 /**
