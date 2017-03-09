@@ -60,13 +60,13 @@ class FedExServiceManager {
 
   public function getWebAuthenticationDetail(array $configuration) {
     $webAuthenticationDetail = new WebAuthenticationDetail();
-    $webAuthenticationDetail->setUserCredential(new WebAuthenticationCredential($configuration['api_key'], $configuration['api_password']));
+    $webAuthenticationDetail->setUserCredential(new WebAuthenticationCredential($configuration['api_information']['api_key'], $configuration['api_information']['api_password']));
 
     return $webAuthenticationDetail;
   }
 
   public function getClientDetail(array $configuration) {
-    $clientDetail = new ClientDetail($configuration['account_number'], $configuration['meter_number']);
+    $clientDetail = new ClientDetail($configuration['api_information']['account_number'], $configuration['api_information']['meter_number']);
 
     return $clientDetail;
   }

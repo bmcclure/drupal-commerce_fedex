@@ -119,10 +119,12 @@ class FedEx extends ShippingMethodBase {
   public function defaultConfiguration() {
     return [
         'mode' => 'test',
-        'api_key' => '',
-        'api_password' => '',
-        'account_number' => '',
-        'meter_number' => '',
+        'api_information' => [
+          'api_key' => '',
+          'api_password' => '',
+          'account_number' => '',
+          'meter_number' => '',
+        ],
       ] + parent::defaultConfiguration();
   }
 
@@ -161,7 +163,7 @@ class FedEx extends ShippingMethodBase {
       '#type' => 'textfield',
       '#title' => $this->t('API key'),
       '#description' => $this->t('Enter your FedEx API key.'),
-      '#default_value' => $this->configuration['api_key'],
+      '#default_value' => $this->configuration['api_information']['api_key'],
     ];
 
     $form['api_information']['api_password'] = [
@@ -171,18 +173,23 @@ class FedEx extends ShippingMethodBase {
       '#default_value' => '',
     ];
 
+    $form['api_information']['existing_api_password'] = [
+      '#type' => 'value',
+      '#value' => $this->configuration['api_information']['api_password'],
+    ];
+
     $form['api_information']['account_number'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Account number'),
       '#description' => $this->t('Enter your FedEx account number.'),
-      '#default_value' => $this->configuration['account_number']
+      '#default_value' => $this->configuration['api_information']['account_number']
     ];
 
     $form['api_information']['meter_number'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Meter number'),
       '#description' => $this->t('Enter your FedEx meter number.'),
-      '#default_value' => $this->configuration['meter_number'],
+      '#default_value' => $this->configuration['api_information']['meter_number'],
     ];
 
     return $form;
@@ -197,14 +204,13 @@ class FedEx extends ShippingMethodBase {
     if (!$form_state->getErrors()) {
       $values = $form_state->getValue($form['#parents']);
 
-      $this->configuration['mode'] = $values['mode'];
-      $this->configuration['api_key'] = $values['api_information']['api_key'];
-      $this->configuration['account_number'] = $values['api_information']['account_number'];
-      $this->configuration['meter_number'] = $values['api_information']['meter_number'];
-
-      if (!empty($values['api_information']['api_password'])) {
-        $this->configuration['api_password'] = $values['api_information']['api_password'];
+      if (empty($values['api_information']['api_password'])) {
+        $values['api_information']['api_password'] = $values['api_information']['existing_api_password'];
       }
+      unset($values['api_information']['existing_api_password']);
+
+      $this->configuration['mode'] = $values['mode'];
+      $this->configuration['api_information'] = $values['api_information'];
     }
   }
 
@@ -350,7 +356,7 @@ class FedEx extends ShippingMethodBase {
     // Allow other modules to alter the rate request before it's submitted.
     $this->eventDispatcher->dispatch(CommerceFedExEvents::BEFORE_RATE_REQUEST, $rateRequestEvent);
 
-    return $rateRequest;
+    return $rateRequestEvent->getRateRequest();
   }
 
   /**
