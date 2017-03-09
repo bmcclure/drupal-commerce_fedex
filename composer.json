@@ -9,6 +9,6 @@
     "drupal/commerce_shipping": "~2",
     "php": ">=5.3.3",
     "ext-soap": "*",
-    "wsdltophp/packagebase": "dev-master"
+    "nicholascreativemedia/fedexphp": "~1"
   }
 }

@@ -4,8 +4,8 @@ namespace Drupal\commerce_fedex;
 
 use Drupal\commerce\BundleFieldDefinition;
 use Drupal\commerce\Plugin\Commerce\EntityTrait\EntityTraitBase;
-use Drupal\commerce_fedex\FedEx\EnumType\HazardousCommodityOptionType;
-use Drupal\commerce_fedex\FedEx\EnumType\HazardousCommodityRegulationType;
+use NicholasCreativeMedia\FedExPHP\Enums\HazardousCommodityOptionType;
+use NicholasCreativeMedia\FedExPHP\Enums\HazardousCommodityRegulationType;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 
 /**

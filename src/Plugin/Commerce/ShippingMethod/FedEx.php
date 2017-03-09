@@ -5,20 +5,8 @@ namespace Drupal\commerce_fedex\Plugin\Commerce\ShippingMethod;
 use Drupal\address\AddressInterface;
 use Drupal\commerce_fedex\Event\CommerceFedExEvents;
 use Drupal\commerce_fedex\Event\RateRequestEvent;
-use Drupal\commerce_fedex\FedEx\EnumType\PhysicalPackagingType;
-use Drupal\commerce_fedex\FedEx\ServiceType\RateService;
-use Drupal\commerce_fedex\FedEx\StructType\Address;
-use Drupal\commerce_fedex\FedEx\StructType\Dimensions;
-use Drupal\commerce_fedex\FedEx\StructType\Money;
-use Drupal\commerce_fedex\FedEx\StructType\Party;
-use Drupal\commerce_fedex\FedEx\StructType\RequestedPackageLineItem;
-use Drupal\commerce_fedex\FedEx\StructType\RequestedShipment;
-use Drupal\commerce_fedex\FedEx\StructType\Weight as FedexWeight;
-use Drupal\commerce_fedex\FedEx\EnumType\WeightUnits as FedexWeightUnits;
-use Drupal\commerce_fedex\FedEx\EnumType\LinearUnits as FedexLengthUnits;
 use Drupal\commerce_fedex\FedExServiceManager;
 use Drupal\commerce_price\Price;
-use Drupal\commerce_shipping\Annotation\CommerceShippingMethod;
 use Drupal\commerce_shipping\Entity\ShipmentInterface;
 use Drupal\commerce_shipping\PackageTypeManagerInterface;
 use Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageTypeInterface;
@@ -27,8 +15,18 @@ use Drupal\commerce_shipping\ShippingRate;
 use Drupal\physical\Weight as PhysicalWeight;
 use Drupal\physical\WeightUnit as PhysicalWeightUnits;
 use Drupal\physical\LengthUnit as PhysicalLengthUnits;
-use Drupal\Core\Annotation\Translation;
 use Drupal\Core\Form\FormStateInterface;
+use NicholasCreativeMedia\FedExPHP\Enums\PhysicalPackagingType;
+use NicholasCreativeMedia\FedExPHP\Services\RateService;
+use NicholasCreativeMedia\FedExPHP\Structs\Address;
+use NicholasCreativeMedia\FedExPHP\Structs\Dimensions;
+use NicholasCreativeMedia\FedExPHP\Structs\Money;
+use NicholasCreativeMedia\FedExPHP\Structs\Party;
+use NicholasCreativeMedia\FedExPHP\Structs\RequestedPackageLineItem;
+use NicholasCreativeMedia\FedExPHP\Structs\RequestedShipment;
+use NicholasCreativeMedia\FedExPHP\Structs\Weight as FedexWeight;
+use NicholasCreativeMedia\FedExPHP\Enums\WeightUnits as FedexWeightUnits;
+use NicholasCreativeMedia\FedExPHP\Enums\LinearUnits as FedexLengthUnits;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
@@ -311,7 +309,7 @@ class FedEx extends ShippingMethodBase {
    * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
    *   The shipment.
    *
-   * @return \Drupal\commerce_fedex\FedEx\StructType\RequestedShipment
+   * @return \NicholasCreativeMedia\FedExPHP\Structs\RequestedShipment
    *   The RequestedShipment object.
    */
   protected function getFedExShipment(ShipmentInterface $shipment) {
@@ -334,12 +332,12 @@ class FedEx extends ShippingMethodBase {
   /**
    * Gets a rate request object for FedEx.
    *
-   * @param \Drupal\commerce_fedex\FedEx\ServiceType\RateService $rateService
+   * @param \NicholasCreativeMedia\FedExPHP\Services\RateService $rateService
    *   The rate service.
    * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
    *   The shipment.
    *
-   * @return \Drupal\commerce_fedex\FedEx\StructType\RateRequest
+   * @return \NicholasCreativeMedia\FedExPHP\Structs\RateRequest
    *   The rate request object.
    */
   protected function getRateRequest(RateService $rateService, ShipmentInterface $shipment) {
@@ -365,7 +363,7 @@ class FedEx extends ShippingMethodBase {
    * @param \Drupal\physical\Weight $weight
    *   The weight from Drupal.
    *
-   * @return \Drupal\commerce_fedex\FedEx\StructType\Weight
+   * @return \NicholasCreativeMedia\FedExPHP\Structs\Weight
    *   The weight for FedEx.
    *
    * @throws \Exception
@@ -405,7 +403,7 @@ class FedEx extends ShippingMethodBase {
    * @param \Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageTypeInterface $package
    *   The package.
    *
-   * @return \Drupal\commerce_fedex\FedEx\StructType\Dimensions
+   * @return \NicholasCreativeMedia\FedExPHP\Structs\Dimensions
    *   The dimensions.
    *
    * @throws \Exception
