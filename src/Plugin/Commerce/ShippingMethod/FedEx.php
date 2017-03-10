@@ -4,6 +4,7 @@ namespace Drupal\commerce_fedex\Plugin\Commerce\ShippingMethod;
 
 use Drupal\address\AddressInterface;
 use Drupal\commerce_fedex\Event\CommerceFedExEvents;
+use Drupal\commerce_fedex\Event\ConfigurationFormEvent;
 use Drupal\commerce_fedex\Event\RateRequestEvent;
 use Drupal\commerce_fedex\FedExServiceManager;
 use Drupal\commerce_price\Price;
@@ -190,7 +191,12 @@ class FedEx extends ShippingMethodBase {
       '#default_value' => $this->configuration['api_information']['meter_number'],
     ];
 
-    return $form;
+
+    /* Allow other modules to alter the settings form with access to configuration */
+    $configurationFormEvent = new ConfigurationFormEvent($form, $form_state, $this->configuration);
+    $this->eventDispatcher->dispatch(CommerceFedExEvents::BUILD_CONFIGURATION_FORM, $configurationFormEvent);
+
+    return $configurationFormEvent->getForm();
   }
 
   /**
@@ -209,7 +215,12 @@ class FedEx extends ShippingMethodBase {
 
       $this->configuration['mode'] = $values['mode'];
       $this->configuration['api_information'] = $values['api_information'];
+
+      /* Allow other modules to alter the settings form with access to configuration */
+      $configurationFormEvent = new ConfigurationFormEvent($form, $form_state, $this->configuration);
+      $this->eventDispatcher->dispatch(CommerceFedExEvents::SUBMIT_CONFIGURATION_FORM, $configurationFormEvent);
     }
+
   }
 
   /**

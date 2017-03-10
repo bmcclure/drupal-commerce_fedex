@@ -18,4 +18,8 @@ final class CommerceFedExEvents {
    */
   const BEFORE_RATE_REQUEST = 'commerce_fedex.before_rate_request';
 
+  const BUILD_CONFIGURATION_FORM = 'commerce_fedex.build_configuration_form';
+  const VALIDATE_CONFIGURATION_FORM = 'commerce_fedex.build_configuration_form';
+  const SUBMIT_CONFIGURATION_FORM = 'commerce_fedex.submit_configuration_form';
+
 }
