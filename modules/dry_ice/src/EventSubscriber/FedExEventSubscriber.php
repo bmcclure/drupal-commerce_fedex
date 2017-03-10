@@ -68,7 +68,23 @@ class FedExEventSubscriber implements EventSubscriberInterface
       '#maxlength' => 4,
       '#required' => TRUE,
     ];
-
+    $form['dry_ice']['intl_package_type'] = [
+      '#type' => 'select',
+      '#title' => $this->t('International dry ice package type'),
+      '#options' => $package_types,
+      '#default_value' => !empty($configuration['dry_ice']['intl_package_type'])?$configuration['dry_ice']['intl_package_type']:NULL,
+      '#required' => TRUE,
+      '#access' => count($package_types) > 1,
+    ];
+    $form['dry_ice']['intl_weight']  = [
+      '#type' => 'physical_measurement',
+      '#measurement_type' => 'weight',
+      '#title' => $this->t('International dry Ice Weight'),
+      '#default_value' => !empty($configuration['dry_ice']['intl_weight'])?$configuration['dry_ice']['intl_weight']:['number' => 0, 'unit' => WeightUnit::KILOGRAM],
+      '#size' => 5,
+      '#maxlength' => 4,
+      '#required' => TRUE,
+    ];
     $event->setForm($form);
     return $event;
   }
