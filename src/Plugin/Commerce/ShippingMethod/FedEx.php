@@ -3,6 +3,7 @@
 namespace Drupal\commerce_fedex\Plugin\Commerce\ShippingMethod;
 
 use Drupal\address\AddressInterface;
+use Drupal\address\Plugin\Field\FieldType\AddressItem;
 use Drupal\commerce_fedex\Event\CommerceFedExEvents;
 use Drupal\commerce_fedex\Event\ConfigurationFormEvent;
 use Drupal\commerce_fedex\Event\RateRequestEvent;
@@ -71,6 +72,16 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
  * )
  */
 class FedEx extends ShippingMethodBase {
+
+  /**
+   * Constant for Domestic Shipping
+   */
+  const SHIPPING_TYPE_DOMESTIC = 'domestic';
+
+  /**
+   *  Constant for International Shipping
+   */
+  const SHIPPING_TYPE_INTERNATIONAL = 'intl';
 
   /**
    * The event dispatcher.
@@ -468,4 +479,22 @@ class FedEx extends ShippingMethodBase {
 
     return new Dimensions($length->getNumber(), $width->getNumber(), $height->getNumber(), $unit);
   }
+
+  public static function isDomestic(ShipmentInterface $shipment){
+    $shippingAddress = $shipment->getShippingProfile()->get('address')->first();
+    if ($shippingAddress instanceof AddressItem) {
+      /** @var  AddressItem $shippingAddress */
+      return $shipment->getOrder()->getStore()->getAddress()->getCountryCode() == $shippingAddress->getCountryCode();
+    }
+    return NULL;
+  }
+
+  public static function shippingType(ShipmentInterface $shipment){
+    if (static::isDomestic($shipment)){
+      return FedEx::SHIPPING_TYPE_DOMESTIC;
+    } else {
+      return FedEx::SHIPPING_TYPE_INTERNATIONAL;
+    }
+  }
+
 }
