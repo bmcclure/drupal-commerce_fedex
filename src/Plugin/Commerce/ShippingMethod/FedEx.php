@@ -18,9 +18,13 @@ use Drupal\physical\Weight as PhysicalWeight;
 use Drupal\physical\WeightUnit as PhysicalWeightUnits;
 use Drupal\physical\LengthUnit as PhysicalLengthUnits;
 use Drupal\Core\Form\FormStateInterface;
+use NicholasCreativeMedia\FedExPHP\Enums\DangerousGoodsAccessibilityType;
+use NicholasCreativeMedia\FedExPHP\Enums\HazardousCommodityOptionType;
+use NicholasCreativeMedia\FedExPHP\Enums\HazardousCommodityRegulationType;
 use NicholasCreativeMedia\FedExPHP\Enums\PhysicalPackagingType;
 use NicholasCreativeMedia\FedExPHP\Services\RateService;
 use NicholasCreativeMedia\FedExPHP\Structs\Address;
+use NicholasCreativeMedia\FedExPHP\Structs\DangerousGoodsDetail;
 use NicholasCreativeMedia\FedExPHP\Structs\Dimensions;
 use NicholasCreativeMedia\FedExPHP\Structs\Money;
 use NicholasCreativeMedia\FedExPHP\Structs\Party;
@@ -291,6 +295,22 @@ class FedEx extends ShippingMethodBase {
     ));
 
     return $party;
+  }
+
+  /**
+   * Sets Details for Hazmat/Dangerous Goods
+   * 
+   * @param $purchased_entity
+   *    A product with the information needed to create the soap request
+   * @return \NicholasCreativeMedia\FedExPHP\Structs\DangerousGoodsDetail
+   *    A Struct to be added to the package detail
+   */
+  protected function getDangerousGoodsDetail($purchased_entity){
+    $dangerousGoodsDetail = new DangerousGoodsDetail();
+    $dangerousGoodsDetail->setAccessibility(DangerousGoodsAccessibilityType::VALUE_ACCESSIBLE);
+    $dangerousGoodsDetail->setOptions([HazardousCommodityOptionType::VALUE_HAZARDOUS_MATERIALS]);
+    $dangerousGoodsDetail->setRegulation(HazardousCommodityRegulationType::VALUE_DOT);
+    return $dangerousGoodsDetail;
   }
 
   /**
