@@ -2,11 +2,10 @@
 
 namespace Drupal\commerce_fedex_dry_ice\EventSubscriber;
 
-use Drupal\commerce\BundleFieldDefinition;
 use Drupal\commerce_fedex\Event\CommerceFedExEvents;
 use Drupal\commerce_fedex\Event\ConfigurationFormEvent;
+use Drupal\commerce_fedex\Event\DefaultConfigurationEvent;
 use Drupal\commerce_fedex\Event\RateRequestEvent;
-use Drupal\physical\MeasurementType;
 use Drupal\physical\WeightUnit;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
@@ -55,7 +54,7 @@ class FedExEventSubscriber implements EventSubscriberInterface
       '#type' => 'select',
       '#title' => $this->t('Dry ice package type'),
       '#options' => $package_types,
-      '#default_value' => !empty($configuration['dry_ice']['domestic']['package_type'])?$configuration['dry_ice']['domestic']['package_type']:NULL,
+      '#default_value' => $configuration['dry_ice']['domestic']['package_type'],
       '#required' => TRUE,
       '#access' => count($package_types) > 1,
     ];
@@ -63,7 +62,7 @@ class FedExEventSubscriber implements EventSubscriberInterface
       '#type' => 'physical_measurement',
       '#measurement_type' => 'weight',
       '#title' => $this->t('Dry Ice Weight'),
-      '#default_value' => !empty($configuration['dry_ice']['domestic']['weight'])?$configuration['dry_ice']['domestic']['weight']:['number' => 0, 'unit' => WeightUnit::KILOGRAM],
+      '#default_value' => $configuration['dry_ice']['domestic']['weight'],
       '#size' => 5,
       '#maxlength' => 4,
       '#required' => TRUE,
@@ -72,7 +71,7 @@ class FedExEventSubscriber implements EventSubscriberInterface
       '#type' => 'select',
       '#title' => $this->t('International dry ice package type'),
       '#options' => $package_types,
-      '#default_value' => !empty($configuration['dry_ice']['intl']['package_type'])?$configuration['dry_ice']['intl']['package_type']:NULL,
+      '#default_value' => $configuration['dry_ice']['intl']['package_type'],
       '#required' => TRUE,
       '#access' => count($package_types) > 1,
     ];
@@ -80,7 +79,7 @@ class FedExEventSubscriber implements EventSubscriberInterface
       '#type' => 'physical_measurement',
       '#measurement_type' => 'weight',
       '#title' => $this->t('International dry Ice Weight'),
-      '#default_value' => !empty($configuration['dry_ice']['intl']['weight'])?$configuration['dry_ice']['intl']['weight']:['number' => 0, 'unit' => WeightUnit::KILOGRAM],
+      '#default_value' => $configuration['dry_ice']['intl']['weight'],
       '#size' => 5,
       '#maxlength' => 4,
       '#required' => TRUE,
@@ -110,6 +109,27 @@ class FedExEventSubscriber implements EventSubscriberInterface
     return $event;
   }
 
+  public function getDefaultConfigurationForm(DefaultConfigurationEvent $event){
+    $configuration = $event->getConfiguration();
+    $configuration['dry_ice'] = [
+      'domestic' => [
+        'package_type' => 'custom_box',
+        'weight' => [
+          'number' => 0,
+          'unit' => WeightUnit::KILOGRAM,
+        ],
+      ],
+      'intl' => [
+        'package_type' => 'custom_box',
+        'weight' => [
+          'number' => 0,
+          'unit' => WeightUnit::KILOGRAM,
+        ],
+      ],
+    ];
+    $event->setConfiguration($configuration);
+  }
+
   /**
    * @inheritdoc
    */
@@ -119,6 +139,7 @@ class FedExEventSubscriber implements EventSubscriberInterface
     $events[CommerceFedExEvents::BEFORE_RATE_REQUEST][] = ['beforeRateRequest'];
     $events[CommerceFedExEvents::BUILD_CONFIGURATION_FORM][] = ['buildConfigurationForm'];
     $events[CommerceFedExEvents::SUBMIT_CONFIGURATION_FORM][] = ['submitConfigurationForm'];
+    $events[CommerceFedExEvents::GET_DEFAULT_CONFIGURATION][] = ['getDefaultConfigurationForm'];
     return $events;
   }
 
