@@ -7,7 +7,7 @@ use Drupal\Core\Form\FormStateInterface;
 use Symfony\Component\EventDispatcher\Event;
 
 /**
- * Defines events for Commerce Fedex
+ * Manages event data for configuration form events
  *
  * Class ConfigurationFormEvent
  * @package Drupal\commerce_fedex\Event
