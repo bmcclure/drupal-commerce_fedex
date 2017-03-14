@@ -21,10 +21,12 @@ use Drupal\physical\WeightUnit as PhysicalWeightUnits;
 use Drupal\physical\LengthUnit as PhysicalLengthUnits;
 use Drupal\Core\Form\FormStateInterface;
 use NicholasCreativeMedia\FedExPHP\Enums\DangerousGoodsAccessibilityType;
+use NicholasCreativeMedia\FedExPHP\Enums\DropoffType;
 use NicholasCreativeMedia\FedExPHP\Enums\HazardousCommodityOptionType;
 use NicholasCreativeMedia\FedExPHP\Enums\HazardousCommodityRegulationType;
 use NicholasCreativeMedia\FedExPHP\Enums\PackageSpecialServiceType;
 use NicholasCreativeMedia\FedExPHP\Enums\PhysicalPackagingType;
+use NicholasCreativeMedia\FedExPHP\Enums\RateRequestType;
 use NicholasCreativeMedia\FedExPHP\Services\RateService;
 use NicholasCreativeMedia\FedExPHP\Structs\Address;
 use NicholasCreativeMedia\FedExPHP\Structs\DangerousGoodsDetail;
@@ -144,6 +146,14 @@ class FedEx extends ShippingMethodBase {
           'account_number' => '',
           'meter_number' => '',
         ],
+        'options' => [
+          'rate_service_type' => RateRequestType::VALUE_NONE,
+          'ship_to' => 'residential',
+          'dropoff' => DropoffType::VALUE_REGULAR_PICKUP,
+          'insurance' => false,
+          'log' => [],
+
+        ]
       ] + parent::defaultConfiguration();
 
     $defaultConfigurationEvent = new DefaultConfigurationEvent($defaultConfiguration);
@@ -157,6 +167,8 @@ class FedEx extends ShippingMethodBase {
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
     $form = parent::buildConfigurationForm($form, $form_state);
+    $form['services']['#type'] = 'select';
+    $form['services']['#multiple'] = TRUE;
 
     // Select all services by default.
     if (empty($this->configuration['services'])) {
@@ -165,7 +177,7 @@ class FedEx extends ShippingMethodBase {
     }
 
     $form['mode'] = [
-      '#type' => 'radios',
+      '#type' => 'select',
       '#title' => $this->t('Mode'),
       '#description' => $this->t('Choose whether to use the test or live mode.'),
       '#options' => [
@@ -179,8 +191,9 @@ class FedEx extends ShippingMethodBase {
     $form['api_information'] = [
       '#type' => 'details',
       '#title' => $this->t('API information'),
-      '#description' => $this->t('Fill in or update your FedEx API information.'),
-      '#weight' => 10,
+      '#description' => $this->isConfigured() ? $this->t('Update your FedEx API information.') : $this->t('Fill in your FedEx API information.'),
+      '#weight' => $this->isConfigured()?10:-1,
+      '#open' => !$this->isConfigured(),
     ];
 
     $form['api_information']['api_key'] = [
@@ -191,15 +204,10 @@ class FedEx extends ShippingMethodBase {
     ];
 
     $form['api_information']['api_password'] = [
-      '#type' => 'password',
+      '#type' => 'textfield',
       '#title' => $this->t('API password'),
       '#description' => $this->t('Enter your FedEx API password only if you wish to change its value.'),
-      '#default_value' => '',
-    ];
-
-    $form['api_information']['existing_api_password'] = [
-      '#type' => 'value',
-      '#value' => $this->configuration['api_information']['api_password'],
+      '#default_value' => $this->configuration['api_information']['api_password'],
     ];
 
     $form['api_information']['account_number'] = [
@@ -215,6 +223,53 @@ class FedEx extends ShippingMethodBase {
       '#description' => $this->t('Enter your FedEx meter number.'),
       '#default_value' => $this->configuration['api_information']['meter_number'],
     ];
+    $form['options'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Fedex Options'),
+      '#description' => $this->t('Additional options for Fedex'),
+      '#weight' => 15,
+    ];
+    $form['options']['rate_service_type'] = array(
+      '#type' => 'select',
+      '#title' => $this->t('Pricing options'),
+      '#description' => $this->t('Select the pricing option to use when requesting a rate quote. Note that discounted rates are only available when sending production requests.'),
+      '#options' => array(
+        RateRequestType::VALUE_NONE => $this->t('Standard pricing (LIST)'),
+        RateRequestType::VALUE_PREFERRED => $this->t('This FedEx account\'s discounted pricing (ACCOUNT)'),
+      ),
+      '#default_value' => $this->configuration['options']['rate_service_type'],
+    );
+    $form['options']['ship_to'] = array(
+      '#type' => 'select',
+      '#title' => $this->t('Ship to destination type'),
+      '#description' => $this->t('Leave this set as residential unless you only ship to commercial addresses.'),
+      '#options' => array(
+        'residential' => $this->t('Residential and Commercial'),
+        'commercial' => $this->t('Commercial Only')
+      ),
+      '#default_value' => $this->configuration['options']['ship_to'],
+    );
+    $form['options']['dropoff'] = array(
+      '#type' => 'select',
+      '#title' => $this->t('Default dropoff/pickup location for your FedEx shipments'),
+      '#options' => static::enumToList(DropoffType::getValidValues()),
+      '#default_value' => $this->configuration['options']['dropoff'],
+    );
+    $form['options']['insurance'] = array(
+      '#type' => 'checkbox',
+      '#title' => $this->t('Include insurance value of shippable line items in FedEx rate requests'),
+      '#default_value' => $this->configuration['options']['insurance'],
+    );
+    $form['options']['log'] = array(
+      '#type' => 'checkboxes',
+      '#title' => $this->t('Log the following messages for debugging'),
+      '#options' => array(
+        'request' => $this->t('API request messages'),
+        'response' => $this->t('API response messages'),
+      ),
+      '#default_value' => $this->configuration['options']['log'],
+    );
+
 
 
     /* Allow other modules to alter the settings form with access to configuration */
@@ -233,13 +288,14 @@ class FedEx extends ShippingMethodBase {
     if (!$form_state->getErrors()) {
       $values = $form_state->getValue($form['#parents']);
 
-      if (empty($values['api_information']['api_password'])) {
+     /* if (empty($values['api_information']['api_password'])) {
         $values['api_information']['api_password'] = $values['api_information']['existing_api_password'];
-      }
-      unset($values['api_information']['existing_api_password']);
+      }*/
+     //unset($values['api_information']['existing_api_password']);
 
       $this->configuration['mode'] = $values['mode'];
       $this->configuration['api_information'] = $values['api_information'];
+      $this->configuration['options'] = $values['options'];
 
       /* Allow other modules to alter the settings form with access to configuration */
       $configurationFormEvent = new ConfigurationFormEvent($form, $form_state, $this->configuration);
@@ -282,6 +338,16 @@ class FedEx extends ShippingMethodBase {
     return $rates;
   }
 
+  /**
+   *   Convert a fedex api Enum array to an option list
+   *
+   * @param array $enums
+   *
+   * @return array
+   */
+  public static function enumToList(array $enums){
+    return array_combine($enums, array_map(function ($d) { return ucwords(str_replace('_', ' ', $d)); }, $enums));
+  }
   /**
    * Gets a FedEx address object from the provided Drupal address object.
    *
@@ -429,6 +495,10 @@ class FedEx extends ShippingMethodBase {
     return $rateRequestEvent->getRateRequest();
   }
 
+  protected function isConfigured(){
+    $api = $this->configuration['api_information'];
+    return !empty($api['api_key']) && !empty($api['api_password']) && !empty($api['account_number']) && !empty($api['meter_number']);
+  }
   /**
    * Convert between \Drupal\physical\Weight and \Nicholas
    *
