@@ -51,36 +51,36 @@ class FedExEventSubscriber implements EventSubscriberInterface
       '#description' => $this->t('Enter your configuration for Dry ice'),
       '#weight' => 10,
     ];
-    $form['dry_ice']['package_type'] = [
+    $form['dry_ice']['domestic']['package_type'] = [
       '#type' => 'select',
       '#title' => $this->t('Dry ice package type'),
       '#options' => $package_types,
-      '#default_value' => !empty($configuration['dry_ice']['package_type'])?$configuration['dry_ice']['package_type']:NULL,
+      '#default_value' => !empty($configuration['dry_ice']['package_type'])?$configuration['dry_ice']['domestic']['package_type']:NULL,
       '#required' => TRUE,
       '#access' => count($package_types) > 1,
     ];
-    $form['dry_ice']['weight']  = [
+    $form['dry_ice']['domestic']['weight']  = [
       '#type' => 'physical_measurement',
       '#measurement_type' => 'weight',
       '#title' => $this->t('Dry Ice Weight'),
-      '#default_value' => !empty($configuration['dry_ice']['weight'])?$configuration['dry_ice']['weight']:['number' => 0, 'unit' => WeightUnit::KILOGRAM],
+      '#default_value' => !empty($configuration['dry_ice']['weight'])?$configuration['dry_ice']['domestic']['weight']:['number' => 0, 'unit' => WeightUnit::KILOGRAM],
       '#size' => 5,
       '#maxlength' => 4,
       '#required' => TRUE,
     ];
-    $form['dry_ice']['intl_package_type'] = [
+    $form['dry_ice']['intl']['package_type'] = [
       '#type' => 'select',
       '#title' => $this->t('International dry ice package type'),
       '#options' => $package_types,
-      '#default_value' => !empty($configuration['dry_ice']['intl_package_type'])?$configuration['dry_ice']['intl_package_type']:NULL,
+      '#default_value' => !empty($configuration['dry_ice']['intl_package_type'])?$configuration['dry_ice']['intl']['package_type']:NULL,
       '#required' => TRUE,
       '#access' => count($package_types) > 1,
     ];
-    $form['dry_ice']['intl_weight']  = [
+    $form['dry_ice']['intl']['weight']  = [
       '#type' => 'physical_measurement',
       '#measurement_type' => 'weight',
       '#title' => $this->t('International dry Ice Weight'),
-      '#default_value' => !empty($configuration['dry_ice']['intl_weight'])?$configuration['dry_ice']['intl_weight']:['number' => 0, 'unit' => WeightUnit::KILOGRAM],
+      '#default_value' => !empty($configuration['dry_ice']['intl_weight'])?$configuration['dry_ice']['intl']['weight']:['number' => 0, 'unit' => WeightUnit::KILOGRAM],
       '#size' => 5,
       '#maxlength' => 4,
       '#required' => TRUE,
