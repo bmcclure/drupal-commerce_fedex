@@ -351,7 +351,9 @@ class FedEx extends ShippingMethodBase {
       $orderItem = $orderItemStorage->load($shipmentItem->getOrderItemId());
       $purchasedEntity = $orderItem->getPurchasedEntity();
       if ($purchasedEntity->hasField("commerce_fedex_dry_ice_$shippingType") && $purchasedEntity->get("commerce_fedex_dry_ice_$shippingType")->getValue()[0]['value']){
-        $requestedPackageLineItem->getSpecialServicesRequested()->addToSpecialServiceTypes(PackageSpecialServiceType::VALUE_DRY_ICE);
+        $requestedPackageLineItem
+          ->getSpecialServicesRequested()
+          ->addToSpecialServiceTypes(PackageSpecialServiceType::VALUE_DRY_ICE);
         if (!empty($this->configuration['dry_ice'][$shippingType]['weight'])) {
           $weight = $this->configuration['dry_ice'][$shippingType]['weight'];
           $requestedPackageLineItem->getSpecialServicesRequested()
@@ -379,11 +381,12 @@ class FedEx extends ShippingMethodBase {
 
     /** @var AddressInterface $recipientAddress */
     $recipientAddress = $shipment->getShippingProfile()->get('address')->first();
+    $shipperAddress = $shipment->getOrder()->getStore()->getAddress();
 
     $fedExShipment = new RequestedShipment();
     $fedExShipment
       ->setTotalWeight($this->physicalWeightToFedex($shipment->getWeight()))
-      ->setShipper($this->getAddressForFedEx($shipment->getOrder()->getStore()->getAddress()))
+      ->setShipper($this->getAddressForFedEx($shipperAddress))
       ->setRecipient($this->getAddressForFedEx($recipientAddress))
       ->setRequestedPackageLineItems($lineItems)
       ->setPackageCount(count($lineItems));
@@ -422,7 +425,7 @@ class FedEx extends ShippingMethodBase {
   /**
    * Convert between \Drupal\physical\Weight and \Drupal\commerce_fedex\FedEx\StructType\Weight
    *
-   * @param \Drupal\physical\Weight $weight
+   * @param object $weight
    *   The weight from Drupal.
    *
    * @return \NicholasCreativeMedia\FedExPHP\Structs\Weight
@@ -430,7 +433,11 @@ class FedEx extends ShippingMethodBase {
    *
    * @throws \Exception
    */
-  protected function physicalWeightToFedex(PhysicalWeight $weight) {
+  protected function physicalWeightToFedex(object $weight) {
+    if (!($weight instanceof PhysicalWeight)) {
+      throw new \Exception("Invalid Units for Weight");
+    }
+
     $number = $weight->getNumber();
 
     switch ($weight->getUnit()) {
@@ -532,7 +539,8 @@ class FedEx extends ShippingMethodBase {
   public static function shippingType(ShipmentInterface $shipment){
     if (static::isDomestic($shipment)){
       return FedEx::SHIPPING_TYPE_DOMESTIC;
-    } else {
+    }
+    else {
       return FedEx::SHIPPING_TYPE_INTERNATIONAL;
     }
   }
