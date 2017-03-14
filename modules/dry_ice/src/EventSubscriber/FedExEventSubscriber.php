@@ -38,7 +38,7 @@ class FedExEventSubscriber implements EventSubscriberInterface
   public function buildConfigurationForm(ConfigurationFormEvent $event){
     $form = $event->getForm();
     $configuration = $event->getConfiguration();
-    q
+
     $packageTypeManager = \Drupal::service('plugin.manager.commerce_package_type');
     $package_types = $packageTypeManager->getDefinitionsByShippingMethod('fedex');
     $package_types = array_map(function ($package_type) {
