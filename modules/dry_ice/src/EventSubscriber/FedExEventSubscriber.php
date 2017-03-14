@@ -38,7 +38,7 @@ class FedExEventSubscriber implements EventSubscriberInterface
   public function buildConfigurationForm(ConfigurationFormEvent $event){
     $form = $event->getForm();
     $configuration = $event->getConfiguration();
-
+    q
     $packageTypeManager = \Drupal::service('plugin.manager.commerce_package_type');
     $package_types = $packageTypeManager->getDefinitionsByShippingMethod('fedex');
     $package_types = array_map(function ($package_type) {
@@ -103,7 +103,10 @@ class FedExEventSubscriber implements EventSubscriberInterface
       $values = $form_state->getValue($form['#parents']);
       $configuration['dry_ice']['package_type'] = $values['dry_ice']['package_type'];
       $configuration['dry_ice']['weight'] = $values['dry_ice']['weight'];
+      $configuration['dry_ice']['intl_package_type'] = $values['dry_ice']['package_type'];
+      $configuration['dry_ice']['intl_weight'] = $values['dry_ice']['weight'];
     }
+    $event->setConfiguration($configuration);
     return $event;
   }
 

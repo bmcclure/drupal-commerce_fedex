@@ -24,13 +24,18 @@ class PurchasableEntityDryIce extends EntityTraitBase {
 
     $id = $this->getPluginId();
 
-    $fields[$id] = BundleFieldDefinition::create('boolean')
-      ->setLabel("FedEx: Require dry ice shipping")
+    $fields[$id . '_domestic'] = BundleFieldDefinition::create('boolean')
+      ->setLabel("FedEx: Require dry ice shipping Domestically")
       ->setDisplayOptions('form', [
         'type' => 'boolean_checkbox',
         'weight' => 95,
       ]);
-
+    $fields[$id . '_intl'] = BundleFieldDefinition::create('boolean')
+      ->setLabel("FedEx: Require dry ice shipping Internationally")
+      ->setDisplayOptions('form', [
+        'type' => 'boolean_checkbox',
+        'weight' => 95,
+      ]);
     return $fields;
   }
 
