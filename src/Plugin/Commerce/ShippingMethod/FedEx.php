@@ -315,6 +315,11 @@ class FedEx extends ShippingMethodBase {
 
     $rateService = $fedEx->getRateService($this->configuration);
     $rateRequest = $this->getRateRequest($rateService, $shipment);
+    // Allow other modules to alter the rate request before it's submitted.
+    $rateRequestEvent = new RateRequestEvent($rateRequest, $rateService, $shipment);
+    $this->eventDispatcher->dispatch(CommerceFedExEvents::BEFORE_RATE_REQUEST, $rateRequestEvent);
+
+    $rateRequest = $rateRequestEvent->getRateRequest();
 
     $response = $rateService->getRates($rateRequest);
     if (!$response) {
@@ -486,11 +491,6 @@ class FedEx extends ShippingMethodBase {
     $rateRequest
           ->setVersion($rateService->version)
           ->setRequestedShipment($this->getFedExShipment($shipment));
-
-     $rateRequestEvent = new RateRequestEvent($rateRequest, $rateService, $shipment);
-
-     // Allow other modules to alter the rate request before it's submitted.
-     $this->eventDispatcher->dispatch(CommerceFedExEvents::BEFORE_RATE_REQUEST, $rateRequestEvent);
 
     return $rateRequest;
   }
