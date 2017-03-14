@@ -148,7 +148,7 @@ class FedEx extends ShippingMethodBase {
 
     $defaultConfigurationEvent = new DefaultConfigurationEvent($defaultConfiguration);
     $this->eventDispatcher->dispatch(CommerceFedExEvents::GET_DEFAULT_CONFIGURATION, $defaultConfigurationEvent);
-    
+
     return $defaultConfigurationEvent->getConfiguration();
   }
 
@@ -430,9 +430,9 @@ class FedEx extends ShippingMethodBase {
   }
 
   /**
-   * Convert between \Drupal\physical\Weight and \Drupal\commerce_fedex\FedEx\StructType\Weight
+   * Convert between \Drupal\physical\Weight and \Nicholas
    *
-   * @param object $weight
+   * @param \Drupal\physical\Weight $weight
    *   The weight from Drupal.
    *
    * @return \NicholasCreativeMedia\FedExPHP\Structs\Weight
@@ -440,7 +440,7 @@ class FedEx extends ShippingMethodBase {
    *
    * @throws \Exception
    */
-  protected function physicalWeightToFedex(object $weight) {
+  protected function physicalWeightToFedex(PhysicalWeight $weight) {
     if (!($weight instanceof PhysicalWeight)) {
       throw new \Exception("Invalid Units for Weight");
     }
