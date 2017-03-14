@@ -22,4 +22,6 @@ final class CommerceFedExEvents {
   const VALIDATE_CONFIGURATION_FORM = 'commerce_fedex.build_configuration_form';
   const SUBMIT_CONFIGURATION_FORM = 'commerce_fedex.submit_configuration_form';
 
+  const GET_DEFAULT_CONFIGURATION = 'commerce_fedex.get_default_configuration';
+
 }
