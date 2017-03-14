@@ -6,6 +6,7 @@ use Drupal\address\AddressInterface;
 use Drupal\address\Plugin\Field\FieldType\AddressItem;
 use Drupal\commerce_fedex\Event\CommerceFedExEvents;
 use Drupal\commerce_fedex\Event\ConfigurationFormEvent;
+use Drupal\commerce_fedex\Event\DefaultConfigurationEvent;
 use Drupal\commerce_fedex\Event\RateRequestEvent;
 use Drupal\commerce_fedex\FedExServiceManager;
 use Drupal\commerce_order\Entity\OrderItem;
@@ -134,7 +135,8 @@ class FedEx extends ShippingMethodBase {
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
-    return [
+
+    $defaultConfiguration = [
         'mode' => 'test',
         'api_information' => [
           'api_key' => '',
@@ -143,6 +145,11 @@ class FedEx extends ShippingMethodBase {
           'meter_number' => '',
         ],
       ] + parent::defaultConfiguration();
+
+    $defaultConfigurationEvent = new DefaultConfigurationEvent($defaultConfiguration);
+    $this->eventDispatcher->dispatch(CommerceFedExEvents::GET_DEFAULT_CONFIGURATION, $defaultConfigurationEvent);
+    
+    return $defaultConfigurationEvent->getConfiguration();
   }
 
   /**
