@@ -62,6 +62,7 @@ class FedExServiceManager {
       $this->getWebAuthenticationDetail($configuration),
       $this->getClientDetail($configuration)
     );
+    $rateRequest->setVersion(static::getVersion('RateService'));
 
     return $rateRequest;
   }
@@ -144,8 +145,19 @@ class FedExServiceManager {
    * @return \NicholasCreativeMedia\FedExPHP\Structs\ClientDetail
    */
   public function getClientDetail(array $configuration) {
-    $clientDetail = new ClientDetail($configuration['api_information']['account_number'], $configuration['api_information']['meter_number']);
+    $clientDetail = new ClientDetail($configuration['api_information']['account_number'], $configuration['api_information']['meter_number'], '123');
 
     return $clientDetail;
   }
+
+  public function getVersion($service){
+    $class = '\NicholasCreativeMedia\FedExPHP\Services\\' . $service;
+    if (class_exists($class)){
+      /** @var \NicholasCreativeMedia\FedExPHP\Services\FedExService $class */
+      return $class::version();
+    }
+    throw new \Exception("Service $class not found");
+  }
+
 }
+
