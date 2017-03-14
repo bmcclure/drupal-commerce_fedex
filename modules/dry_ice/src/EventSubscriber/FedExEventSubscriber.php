@@ -85,7 +85,6 @@ class FedExEventSubscriber implements EventSubscriberInterface
       '#required' => TRUE,
     ];
     $event->setForm($form);
-    return $event;
   }
 
   /**
@@ -140,7 +139,6 @@ class FedExEventSubscriber implements EventSubscriberInterface
     $events[CommerceFedExEvents::BUILD_CONFIGURATION_FORM][] = ['buildConfigurationForm'];
     $events[CommerceFedExEvents::SUBMIT_CONFIGURATION_FORM][] = ['submitConfigurationForm'];
     $events[CommerceFedExEvents::GET_DEFAULT_CONFIGURATION][] = ['getDefaultConfigurationForm'];
-    return $events;
   }
 
 }
