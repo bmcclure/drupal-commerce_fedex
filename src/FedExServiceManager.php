@@ -62,7 +62,6 @@ class FedExServiceManager {
       $this->getWebAuthenticationDetail($configuration),
       $this->getClientDetail($configuration)
     );
-    $rateRequest->setVersion(static::getVersion('RateService'));
 
     return $rateRequest;
   }

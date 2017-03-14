@@ -168,8 +168,8 @@ class FedEx extends ShippingMethodBase {
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
     $form = parent::buildConfigurationForm($form, $form_state);
-    $form['services']['#type'] = 'select';
-    $form['services']['#multiple'] = TRUE;
+ //   $form['services']['#type'] = 'select';
+ //   $form['services']['#multiple'] = TRUE;
 
     // Select all services by default.
     if (empty($this->configuration['services'])) {
@@ -314,7 +314,7 @@ class FedEx extends ShippingMethodBase {
     $fedEx = \Drupal::service('commerce_fedex.fedex_service');
 
     $rateService = $fedEx->getRateService($this->configuration);
-    $rateRequest = $this->getRateRequest($shipment);
+    $rateRequest = $this->getRateRequest($rateService, $shipment);
 
     $response = $rateService->getRates($rateRequest);
     if (!$response) {
@@ -419,11 +419,11 @@ class FedEx extends ShippingMethodBase {
         ->setWeight($this->physicalWeightToFedex($shipmentItem->getWeight()))
         ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
         ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
-        ->setItemDescription($shipmentItem->getTitle());
-   //     ->setSpecialServicesRequested(new PackageSpecialServicesRequested());
+        ->setItemDescription($shipmentItem->getTitle())
+        ->setSpecialServicesRequested(new PackageSpecialServicesRequested());
 
       /** @var OrderItem $orderItem */
-    /*  $orderItem = $orderItemStorage->load($shipmentItem->getOrderItemId());
+      $orderItem = $orderItemStorage->load($shipmentItem->getOrderItemId());
       $purchasedEntity = $orderItem->getPurchasedEntity();
       if ($purchasedEntity->hasField("commerce_fedex_dry_ice_$shippingType") && $purchasedEntity->get("commerce_fedex_dry_ice_$shippingType")->getValue()[0]['value']){
         $requestedPackageLineItem
@@ -434,7 +434,7 @@ class FedEx extends ShippingMethodBase {
           $requestedPackageLineItem->getSpecialServicesRequested()
             ->setDryIceWeight($this->physicalWeightToFedex(new PhysicalWeight($weight['number'], $weight['unit'])));
         }
-      }*/
+      }
 
       $requestedPackageLineItems[] = $requestedPackageLineItem;
     }
@@ -478,12 +478,19 @@ class FedEx extends ShippingMethodBase {
    * @return \NicholasCreativeMedia\FedExPHP\Structs\RateRequest
    *   The rate request object.
    */
-  protected function getRateRequest(ShipmentInterface $shipment) {
+  protected function getRateRequest(RateService $rateService, ShipmentInterface $shipment) {
     /** @var FedExServiceManager $fedEx */
     $fedEx = \Drupal::service('commerce_fedex.fedex_service');
 
     $rateRequest = $fedEx->getRateRequest($this->configuration);
-    $rateRequest->setRequestedShipment($this->getFedExShipment($shipment));
+    $rateRequest
+          ->setVersion($rateService->version)
+          ->setRequestedShipment($this->getFedExShipment($shipment));
+
+     $rateRequestEvent = new RateRequestEvent($rateRequest, $rateService, $shipment);
+
+     // Allow other modules to alter the rate request before it's submitted.
+     $this->eventDispatcher->dispatch(CommerceFedExEvents::BEFORE_RATE_REQUEST, $rateRequestEvent);
 
     return $rateRequest;
   }
