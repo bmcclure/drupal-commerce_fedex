@@ -2,11 +2,13 @@
 
 namespace Drupal\commerce_fedex\Event;
 
+use Symfony\Component\EventDispatcher\Event;
+
 /**
  * Class DefaultConfigurationEvent
  * @package Drupal\commerce_fedex\Event
  */
-class DefaultConfigurationEvent {
+class DefaultConfigurationEvent extends Event {
 
   /**
    * The Shipping method configuration
