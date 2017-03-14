@@ -8,6 +8,7 @@ use Drupal\commerce_fedex\Event\CommerceFedExEvents;
 use Drupal\commerce_fedex\Event\ConfigurationFormEvent;
 use Drupal\commerce_fedex\Event\RateRequestEvent;
 use Drupal\commerce_fedex\FedExServiceManager;
+use Drupal\commerce_order\Entity\OrderItem;
 use Drupal\commerce_price\Price;
 use Drupal\commerce_shipping\Entity\ShipmentInterface;
 use Drupal\commerce_shipping\PackageTypeManagerInterface;
@@ -21,12 +22,14 @@ use Drupal\Core\Form\FormStateInterface;
 use NicholasCreativeMedia\FedExPHP\Enums\DangerousGoodsAccessibilityType;
 use NicholasCreativeMedia\FedExPHP\Enums\HazardousCommodityOptionType;
 use NicholasCreativeMedia\FedExPHP\Enums\HazardousCommodityRegulationType;
+use NicholasCreativeMedia\FedExPHP\Enums\PackageSpecialServiceType;
 use NicholasCreativeMedia\FedExPHP\Enums\PhysicalPackagingType;
 use NicholasCreativeMedia\FedExPHP\Services\RateService;
 use NicholasCreativeMedia\FedExPHP\Structs\Address;
 use NicholasCreativeMedia\FedExPHP\Structs\DangerousGoodsDetail;
 use NicholasCreativeMedia\FedExPHP\Structs\Dimensions;
 use NicholasCreativeMedia\FedExPHP\Structs\Money;
+use NicholasCreativeMedia\FedExPHP\Structs\PackageSpecialServicesRequested;
 use NicholasCreativeMedia\FedExPHP\Structs\Party;
 use NicholasCreativeMedia\FedExPHP\Structs\RequestedPackageLineItem;
 use NicholasCreativeMedia\FedExPHP\Structs\RequestedShipment;
@@ -299,7 +302,7 @@ class FedEx extends ShippingMethodBase {
 
   /**
    * Sets Details for Hazmat/Dangerous Goods
-   * 
+   *
    * @param $purchased_entity
    *    A product with the information needed to create the soap request
    * @return \NicholasCreativeMedia\FedExPHP\Structs\DangerousGoodsDetail
@@ -323,6 +326,10 @@ class FedEx extends ShippingMethodBase {
    *   The requested package line items.
    */
   protected function getRequestedPackageLineItems(ShipmentInterface $shipment) {
+    $orderItemStorage = \Drupal::entityTypeManager()->getStorage('commerce_order_item');
+
+    $shippingType = $this->shippingType($shipment);
+
     $requestedPackageLineItems = [];
 
     foreach ($shipment->getItems() as $delta => $shipmentItem) {
@@ -337,7 +344,20 @@ class FedEx extends ShippingMethodBase {
         ->setWeight($this->physicalWeightToFedex($shipmentItem->getWeight()))
         ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
         ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
-        ->setItemDescription($shipmentItem->getTitle());
+        ->setItemDescription($shipmentItem->getTitle())
+        ->setSpecialServicesRequested(new PackageSpecialServicesRequested());
+
+      /** @var OrderItem $orderItem */
+      $orderItem = $orderItemStorage->load($shipmentItem->getOrderItemId());
+      $purchasedEntity = $orderItem->getPurchasedEntity();
+      if ($purchasedEntity->hasField("commerce_fedex_dry_ice_$shippingType") && $purchasedEntity->get("commerce_fedex_dry_ice_$shippingType")->getValue()[0]['value']){
+        $requestedPackageLineItem->getSpecialServicesRequested()->addToSpecialServiceTypes(PackageSpecialServiceType::VALUE_DRY_ICE);
+        if (!empty($this->configuration['dry_ice'][$shippingType]['weight'])) {
+          $weight = $this->configuration['dry_ice'][$shippingType]['weight'];
+          $requestedPackageLineItem->getSpecialServicesRequested()
+            ->setDryIceWeight($this->physicalWeightToFedex(new PhysicalWeight($weight['number'], $weight['unit'])));
+        }
+      }
 
       $requestedPackageLineItems[] = $requestedPackageLineItem;
     }
