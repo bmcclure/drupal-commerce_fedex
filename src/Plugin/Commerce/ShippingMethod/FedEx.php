@@ -313,19 +313,32 @@ class FedEx extends ShippingMethodBase {
     /** @var FedExServiceManager $fedEx */
     $fedEx = \Drupal::service('commerce_fedex.fedex_service');
 
+    /** @var \Psr\Log\LoggerInterface $watchdog */
+    $watchdog = \Drupal::service('logger.channel.commerce_fedex');
+
     $rateService = $fedEx->getRateService($this->configuration);
     $rateRequest = $this->getRateRequest($rateService, $shipment);
+
     // Allow other modules to alter the rate request before it's submitted.
     $rateRequestEvent = new RateRequestEvent($rateRequest, $rateService, $shipment);
     $this->eventDispatcher->dispatch(CommerceFedExEvents::BEFORE_RATE_REQUEST, $rateRequestEvent);
 
     $rateRequest = $rateRequestEvent->getRateRequest();
-
+    if ($this->configuration['options']['log']['request']){
+      $watchdog->info("Fedex Request Sent <br>@raterequest", ['@raterequest' => var_export($rateRequest, true)]);
+    }
+    $rateRequest->setVersion($rateService->version);
     $response = $rateService->getRates($rateRequest);
+
     if (!$response) {
-      throw new \Exception($rateService->getLastError());
+      $watchdog->notice('Fedex sent no response back <br>@raterequest', ['@raterequest' => var_export($rateRequest, true)]);
+      return [];
     }
 
+    if ($this->configuration['options']['log']['response']){
+      $watchdog->info("Fedex Response Received <br>@response", ['@response' => var_export($response, true)]);
+    }
+    
     $rates = [];
     if ($response->getHighestSeverity() == 'SUCCESS') {
       foreach ($response->getRateReplyDetails() as $rateDetails) {
@@ -488,9 +501,7 @@ class FedEx extends ShippingMethodBase {
     $fedEx = \Drupal::service('commerce_fedex.fedex_service');
 
     $rateRequest = $fedEx->getRateRequest($this->configuration);
-    $rateRequest
-          ->setVersion($rateService->version)
-          ->setRequestedShipment($this->getFedExShipment($shipment));
+    $rateRequest->setRequestedShipment($this->getFedExShipment($shipment));
 
     return $rateRequest;
   }
