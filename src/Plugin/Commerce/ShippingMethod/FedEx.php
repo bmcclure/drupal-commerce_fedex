@@ -148,6 +148,7 @@ class FedEx extends ShippingMethodBase {
           'meter_number' => '',
         ],
         'options' => [
+          'mode' => 'test',
           'rate_request_type' => RateRequestType::VALUE_NONE,
           'ship_to' => 'residential',
           'dropoff' => DropoffType::VALUE_REGULAR_PICKUP,
@@ -176,18 +177,6 @@ class FedEx extends ShippingMethodBase {
       $service_ids = array_keys($this->services);
       $this->configuration['services'] = array_combine($service_ids, $service_ids);
     }
-
-    $form['mode'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Mode'),
-      '#description' => $this->t('Choose whether to use the test or live mode.'),
-      '#options' => [
-        'test' => $this->t('Test'),
-        'live' => $this->t('Live'),
-      ],
-      '#default_value' => $this->configuration['mode'],
-      '#weight' => 5,
-    ];
 
     $form['api_information'] = [
       '#type' => 'details',
@@ -230,6 +219,18 @@ class FedEx extends ShippingMethodBase {
       '#title' => $this->t('Fedex Options'),
       '#description' => $this->t('Additional options for Fedex'),
       '#weight' => 15,
+    ];
+
+    $form['options']['mode'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Mode'),
+      '#description' => $this->t('Choose whether to use the test or live mode.'),
+      '#options' => [
+        'test' => $this->t('Test'),
+        'live' => $this->t('Live'),
+      ],
+      '#default_value' => $this->configuration['mode'],
+      '#weight' => 5,
     ];
 
     $form['options']['rate_request_type'] = [
@@ -300,7 +301,7 @@ class FedEx extends ShippingMethodBase {
       }*/
      //unset($values['api_information']['existing_api_password']);
 
-      $this->configuration['mode'] = $values['mode'];
+      $this->configuration['mode'] = $values['options']['mode'];
       $this->configuration['api_information'] = $values['api_information'];
       $this->configuration['options'] = $values['options'];
 
