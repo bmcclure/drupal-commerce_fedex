@@ -9,8 +9,8 @@ use Drupal\commerce\Plugin\Commerce\EntityTrait\EntityTraitBase;
  * Provides the "fedex_dry_ice" trait.
  *
  * @CommerceEntityTrait(
- *   id = "fedex_dry_ice",
- *   label = @Translation("FedEx: Dry ice"),
+ *   id = "commerce_fedex_dry_ice",
+ *   label = @Translation("FedEx: Enable dry ice shipping"),
  *   entity_types = {"commerce_product_variation"}
  * )
  */
@@ -23,24 +23,19 @@ class PurchasableEntityDryIce extends EntityTraitBase {
     $fields = [];
 
     $id = $this->getPluginId();
-    $label = $this->getLabel();
 
-    $fields[$id] = BundleFieldDefinition::create('boolean')
-      ->setLabel($label)
+    $fields[$id . '_domestic'] = BundleFieldDefinition::create('boolean')
+      ->setLabel("FedEx: Require dry ice shipping Domestically")
       ->setDisplayOptions('form', [
         'type' => 'boolean_checkbox',
         'weight' => 95,
       ]);
-
-    $fields[$id . '_weight'] = BundleFieldDefinition::create('float')
-      ->setLabel($label . ' ' . $this->t('weight'))
-      ->setDescription($this->t('Enter the weight of the dry ice in kg.'))
+    $fields[$id . '_intl'] = BundleFieldDefinition::create('boolean')
+      ->setLabel("FedEx: Require dry ice shipping Internationally")
       ->setDisplayOptions('form', [
-        'type' => 'number',
+        'type' => 'boolean_checkbox',
         'weight' => 95,
-        'suffix' => ' kg',
       ]);
-
     return $fields;
   }
 

@@ -2,8 +2,8 @@
 
 namespace Drupal\commerce_fedex\Event;
 
-use Drupal\commerce_fedex\FedEx\ServiceType\RateService;
-use Drupal\commerce_fedex\FedEx\StructType\RateRequest;
+use NicholasCreativeMedia\FedExPHP\Services\RateService;
+use NicholasCreativeMedia\FedExPHP\Structs\RateRequest;
 use Drupal\commerce_shipping\Entity\ShipmentInterface;
 use Symfony\Component\EventDispatcher\Event;
 
@@ -17,14 +17,14 @@ class RateRequestEvent extends Event {
   /**
    * The rate request object.
    *
-   * @var \Drupal\commerce_fedex\FedEx\StructType\RateRequest
+   * @var \NicholasCreativeMedia\FedExPHP\Structs\RateRequest
    */
   protected $rateRequest;
 
   /**
    * The FedEx rate service being used.
    *
-   * @var \Drupal\commerce_fedex\FedEx\ServiceType\RateService
+   * @var \NicholasCreativeMedia\FedExPHP\Services\RateService
    */
   protected $rateService;
 

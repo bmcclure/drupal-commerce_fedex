@@ -3,32 +3,39 @@
 namespace Drupal\commerce_fedex\Plugin\Commerce\ShippingMethod;
 
 use Drupal\address\AddressInterface;
+use Drupal\address\Plugin\Field\FieldType\AddressItem;
 use Drupal\commerce_fedex\Event\CommerceFedExEvents;
+use Drupal\commerce_fedex\Event\ConfigurationFormEvent;
+use Drupal\commerce_fedex\Event\DefaultConfigurationEvent;
 use Drupal\commerce_fedex\Event\RateRequestEvent;
-use Drupal\commerce_fedex\FedEx\EnumType\PhysicalPackagingType;
-use Drupal\commerce_fedex\FedEx\ServiceType\RateService;
-use Drupal\commerce_fedex\FedEx\StructType\Address;
-use Drupal\commerce_fedex\FedEx\StructType\Dimensions;
-use Drupal\commerce_fedex\FedEx\StructType\Money;
-use Drupal\commerce_fedex\FedEx\StructType\Party;
-use Drupal\commerce_fedex\FedEx\StructType\RequestedPackageLineItem;
-use Drupal\commerce_fedex\FedEx\StructType\RequestedShipment;
-use Drupal\commerce_fedex\FedEx\StructType\Weight as FedexWeight;
-use Drupal\commerce_fedex\FedEx\EnumType\WeightUnits as FedexWeightUnits;
-use Drupal\commerce_fedex\FedEx\EnumType\LinearUnits as FedexLengthUnits;
-use Drupal\commerce_fedex\FedExServiceManager;
+use Drupal\commerce_fedex\FedExServiceManagerInterface;
+use Drupal\commerce_order\Entity\OrderItem;
 use Drupal\commerce_price\Price;
-use Drupal\commerce_shipping\Annotation\CommerceShippingMethod;
 use Drupal\commerce_shipping\Entity\ShipmentInterface;
 use Drupal\commerce_shipping\PackageTypeManagerInterface;
 use Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageTypeInterface;
 use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodBase;
 use Drupal\commerce_shipping\ShippingRate;
+use Drupal\physical\Plugin\Field\FieldType\DimensionsItem;
 use Drupal\physical\Weight as PhysicalWeight;
 use Drupal\physical\WeightUnit as PhysicalWeightUnits;
 use Drupal\physical\LengthUnit as PhysicalLengthUnits;
-use Drupal\Core\Annotation\Translation;
 use Drupal\Core\Form\FormStateInterface;
+use NicholasCreativeMedia\FedExPHP\Enums\DropoffType;
+use NicholasCreativeMedia\FedExPHP\Enums\PhysicalPackagingType;
+use NicholasCreativeMedia\FedExPHP\Enums\RateRequestType;
+use NicholasCreativeMedia\FedExPHP\Services\RateService;
+use NicholasCreativeMedia\FedExPHP\Structs\Address;
+use NicholasCreativeMedia\FedExPHP\Structs\Dimensions;
+use NicholasCreativeMedia\FedExPHP\Structs\Money;
+use NicholasCreativeMedia\FedExPHP\Structs\PackageSpecialServicesRequested;
+use NicholasCreativeMedia\FedExPHP\Structs\Party;
+use NicholasCreativeMedia\FedExPHP\Structs\RequestedPackageLineItem;
+use NicholasCreativeMedia\FedExPHP\Structs\RequestedShipment;
+use NicholasCreativeMedia\FedExPHP\Structs\Weight as FedexWeight;
+use NicholasCreativeMedia\FedExPHP\Enums\WeightUnits as FedexWeightUnits;
+use NicholasCreativeMedia\FedExPHP\Enums\LinearUnits as FedexLengthUnits;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
@@ -74,11 +81,50 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 class FedEx extends ShippingMethodBase {
 
   /**
+   * Constant for Domestic Shipping
+   */
+  const SHIPPING_TYPE_DOMESTIC = 'domestic';
+
+  /**
+   *  Constant for International Shipping
+   */
+  const SHIPPING_TYPE_INTERNATIONAL = 'intl';
+
+  /**
+   * Package All items in one box, ignoring dimensions
+   */
+  const PACKAGE_ALL_IN_ONE = 'allinone';
+
+  /**
+   * Package each line item in its own box, ignoring dimensions
+   */
+  const PACKAGE_INDIVIDUAL = 'individual';
+
+  /**
+   * Calculate volume to determine how many boxes are needed
+   */
+  const PACKAGE_CALCULATE = 'calculate';
+
+  /**
    * The event dispatcher.
    *
    * @var EventDispatcherInterface
    */
   protected $eventDispatcher;
+
+  /**
+   * Commerce Fedex Logger Channel
+   *
+   * @var LoggerInterface
+   */
+  protected $watchdog;
+
+  /**
+   * The Fedex Service Manager
+   *
+   * @var FedExServiceManagerInterface
+   */
+  protected $fedExServiceManager;
 
   /**
    * Constructs a new ShippingMethodBase object.
@@ -91,11 +137,17 @@ class FedEx extends ShippingMethodBase {
    *   The plugin implementation definition.
    * @param \Drupal\commerce_shipping\PackageTypeManagerInterface $package_type_manager
    *   The package type manager.
+   * @param \Drupal\commerce_fedex\FedExServiceManagerInterface $fedExServiceManager
+   *   The FedEx Service Manager
+   * @param \Psr\Log\LoggerInterface $watchdog
+   *   Commerce Fedex Logger Channel
    * @param \Symfony\Component\EventDispatcher\EventDispatcherInterface $event_dispatcher
    *   The event dispatcher.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, PackageTypeManagerInterface $package_type_manager, EventDispatcherInterface $event_dispatcher) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, PackageTypeManagerInterface $package_type_manager, EventDispatcherInterface $event_dispatcher, FedExServiceManagerInterface $fedExServiceManager, LoggerInterface $watchdog) {
     $this->eventDispatcher = $event_dispatcher;
+    $this->watchdog = $watchdog;
+    $this->fedExServiceManager = $fedExServiceManager;
 
     parent::__construct($configuration, $plugin_id, $plugin_definition, $package_type_manager);
   }
@@ -109,7 +161,9 @@ class FedEx extends ShippingMethodBase {
       $plugin_id,
       $plugin_definition,
       $container->get('plugin.manager.commerce_package_type'),
-      $container->get('event_dispatcher')
+      $container->get('event_dispatcher'),
+      $container->get('commerce_fedex.fedex_service'),
+      $container->get('logger.channel.commerce_fedex')
     );
   }
 
@@ -117,7 +171,8 @@ class FedEx extends ShippingMethodBase {
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
-    return [
+
+    $defaultConfiguration = [
         'mode' => 'test',
         'api_information' => [
           'api_key' => '',
@@ -125,7 +180,21 @@ class FedEx extends ShippingMethodBase {
           'account_number' => '',
           'meter_number' => '',
         ],
+        'options' => [
+          'mode' => 'test',
+          'packaging' => static::PACKAGE_ALL_IN_ONE,
+          'rate_request_type' => RateRequestType::VALUE_NONE,
+          'ship_to' => 'residential',
+          'dropoff' => DropoffType::VALUE_REGULAR_PICKUP,
+          'insurance' => false,
+          'log' => [],
+        ]
       ] + parent::defaultConfiguration();
+
+    $defaultConfigurationEvent = new DefaultConfigurationEvent($defaultConfiguration);
+    $this->eventDispatcher->dispatch(CommerceFedExEvents::GET_DEFAULT_CONFIGURATION, $defaultConfigurationEvent);
+
+    return $defaultConfigurationEvent->getConfiguration();
   }
 
   /**
@@ -133,6 +202,8 @@ class FedEx extends ShippingMethodBase {
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
     $form = parent::buildConfigurationForm($form, $form_state);
+ //   $form['services']['#type'] = 'select';
+ //   $form['services']['#multiple'] = TRUE;
 
     // Select all services by default.
     if (empty($this->configuration['services'])) {
@@ -140,23 +211,12 @@ class FedEx extends ShippingMethodBase {
       $this->configuration['services'] = array_combine($service_ids, $service_ids);
     }
 
-    $form['mode'] = [
-      '#type' => 'radios',
-      '#title' => $this->t('Mode'),
-      '#description' => $this->t('Choose whether to use the test or live mode.'),
-      '#options' => [
-        'test' => $this->t('Test'),
-        'live' => $this->t('Live'),
-      ],
-      '#default_value' => $this->configuration['mode'],
-      '#weight' => 5,
-    ];
-
     $form['api_information'] = [
       '#type' => 'details',
       '#title' => $this->t('API information'),
-      '#description' => $this->t('Fill in or update your FedEx API information.'),
-      '#weight' => 10,
+      '#description' => $this->isConfigured() ? $this->t('Update your FedEx API information.') : $this->t('Fill in your FedEx API information.'),
+      '#weight' => $this->isConfigured()?10:-1,
+      '#open' => !$this->isConfigured(),
     ];
 
     $form['api_information']['api_key'] = [
@@ -167,15 +227,10 @@ class FedEx extends ShippingMethodBase {
     ];
 
     $form['api_information']['api_password'] = [
-      '#type' => 'password',
+      '#type' => 'textfield',
       '#title' => $this->t('API password'),
       '#description' => $this->t('Enter your FedEx API password only if you wish to change its value.'),
-      '#default_value' => '',
-    ];
-
-    $form['api_information']['existing_api_password'] = [
-      '#type' => 'value',
-      '#value' => $this->configuration['api_information']['api_password'],
+      '#default_value' => $this->configuration['api_information']['api_password'],
     ];
 
     $form['api_information']['account_number'] = [
@@ -192,7 +247,89 @@ class FedEx extends ShippingMethodBase {
       '#default_value' => $this->configuration['api_information']['meter_number'],
     ];
 
-    return $form;
+    $form['options'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Fedex Options'),
+      '#description' => $this->t('Additional options for Fedex'),
+      '#weight' => 15,
+    ];
+
+    $form['options']['packaging'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Packaging Strategy'),
+      '#description' => $this->t('Select your packaging strategy. "All items in one box" will ignore package type and product dimensions, and assume all items go in one box. "Each item in its own box" will create a box for each line item in the order, "Calculate" Will attempt to figure out how many boxes are needed based on package type volumes and product volumes similar to commerce_fedex 7.x'),
+      '#options' => [
+        static::PACKAGE_ALL_IN_ONE => $this->t("All items in one box"),
+        static::PACKAGE_INDIVIDUAL => $this->t("Each item in its own box"),
+        static::PACKAGE_CALCULATE => $this->t("Calculate"),
+      ],
+      '#default_value' => $this->configuration['options']['packaging']
+    ];
+
+    $form['options']['mode'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Mode'),
+      '#description' => $this->t('Choose whether to use the test or live mode.'),
+      '#options' => [
+        'test' => $this->t('Test'),
+        'live' => $this->t('Live'),
+      ],
+      '#default_value' => $this->configuration['mode'],
+      '#weight' => 5,
+    ];
+
+    $form['options']['rate_request_type'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Pricing options'),
+      '#description' => $this->t('Select the pricing option to use when requesting a rate quote. Note that discounted rates are only available when sending production requests.'),
+      '#options' => [
+        RateRequestType::VALUE_NONE => $this->t('Standard pricing (LIST)'),
+        RateRequestType::VALUE_PREFERRED => $this->t('This FedEx account\'s discounted pricing (ACCOUNT)'),
+      ],
+      '#default_value' => $this->configuration['options']['rate_request_type'],
+    ];
+
+    /*$form['options']['ship_to'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Ship to destination type'),
+      '#description' => $this->t('Leave this set as residential unless you only ship to commercial addresses.'),
+      '#options' => [
+        'residential' => $this->t('Residential and Commercial'),
+        'commercial' => $this->t('Commercial Only')
+      ],
+      '#efault_value' => $this->configuration['options']['ship_to'],
+    ]; */
+
+    $form['options']['dropoff'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Default dropoff/pickup location for your FedEx shipments'),
+      '#options' => static::enumToList(DropoffType::getValidValues()),
+      '#default_value' => $this->configuration['options']['dropoff'],
+    ];
+
+    $form['options']['insurance'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Include insurance value of shippable line items in FedEx rate requests'),
+      '#default_value' => $this->configuration['options']['insurance'],
+    ];
+
+    $form['options']['log'] = [
+      '#type' => 'checkboxes',
+      '#title' => $this->t('Log the following messages for debugging'),
+      '#options' => [
+        'request' => $this->t('API request messages'),
+        'response' => $this->t('API response messages'),
+      ],
+      '#default_value' => $this->configuration['options']['log'],
+    ];
+
+
+
+    /* Allow other modules to alter the settings form with access to configuration */
+    $configurationFormEvent = new ConfigurationFormEvent($form, $form_state, $this->configuration);
+    $this->eventDispatcher->dispatch(CommerceFedExEvents::BUILD_CONFIGURATION_FORM, $configurationFormEvent);
+
+    return $configurationFormEvent->getForm();
   }
 
   /**
@@ -204,14 +341,20 @@ class FedEx extends ShippingMethodBase {
     if (!$form_state->getErrors()) {
       $values = $form_state->getValue($form['#parents']);
 
-      if (empty($values['api_information']['api_password'])) {
+     /* if (empty($values['api_information']['api_password'])) {
         $values['api_information']['api_password'] = $values['api_information']['existing_api_password'];
-      }
-      unset($values['api_information']['existing_api_password']);
+      }*/
+     //unset($values['api_information']['existing_api_password']);
 
-      $this->configuration['mode'] = $values['mode'];
+      $this->configuration['mode'] = $values['options']['mode'];
       $this->configuration['api_information'] = $values['api_information'];
+      $this->configuration['options'] = $values['options'];
+
+      /* Allow other modules to alter the settings form with access to configuration */
+      $configurationFormEvent = new ConfigurationFormEvent($form, $form_state, $this->configuration);
+      $this->eventDispatcher->dispatch(CommerceFedExEvents::SUBMIT_CONFIGURATION_FORM, $configurationFormEvent);
     }
+
   }
 
   /**
@@ -219,14 +362,27 @@ class FedEx extends ShippingMethodBase {
    */
   public function calculateRates(ShipmentInterface $shipment) {
 
-    /** @var FedExServiceManager $fedEx */
-    $fedEx = \Drupal::service('commerce_fedex.fedex_service');
-
-    $rateService = $fedEx->getRateService($this->configuration);
+    $rateService = $this->fedExServiceManager->getRateService($this->configuration);
     $rateRequest = $this->getRateRequest($rateService, $shipment);
+
+    // Allow other modules to alter the rate request before it's submitted.
+    $rateRequestEvent = new RateRequestEvent($rateRequest, $rateService, $shipment);
+    $this->eventDispatcher->dispatch(CommerceFedExEvents::BEFORE_RATE_REQUEST, $rateRequestEvent);
+
+    $rateRequest = $rateRequestEvent->getRateRequest();
+    if ($this->configuration['options']['log']['request']){
+      $this->watchdog->info("Fedex Request Sent <br>@raterequest", ['@raterequest' => var_export($rateRequest, true)]);
+    }
+    $rateRequest->setVersion($rateService->version);
     $response = $rateService->getRates($rateRequest);
+
     if (!$response) {
-      throw new \Exception($rateService->getLastError());
+      $this->watchdog->notice('Fedex sent no response back <br>@raterequest', ['@raterequest' => var_export($rateRequest, true)]);
+      return [];
+    }
+
+    if ($this->configuration['options']['log']['response']){
+      $this->watchdog->info("Fedex Response Received <br>@response", ['@response' => var_export($response, true)]);
     }
 
     $rates = [];
@@ -248,6 +404,17 @@ class FedEx extends ShippingMethodBase {
     return $rates;
   }
 
+  /**
+   *   Convert a fedex api Enum array to an option list
+   *
+   * @param array $enums
+   *
+   * @return array
+   */
+  public static function enumToList(array $enums){
+    return array_combine($enums, array_map(function ($d) { return ucwords(str_replace('_', ' ', $d)); }, $enums));
+  }
+  
   /**
    * Gets a FedEx address object from the provided Drupal address object.
    *
@@ -283,8 +450,111 @@ class FedEx extends ShippingMethodBase {
    *   The requested package line items.
    */
   protected function getRequestedPackageLineItems(ShipmentInterface $shipment) {
+    $orderItemStorage = \Drupal::entityTypeManager()->getStorage('commerce_order_item');
+
+    $shippingType = $this->shippingType($shipment);
+
     $requestedPackageLineItems = [];
 
+    switch ($this->configuration['options']['packaging']){
+      case static::PACKAGE_ALL_IN_ONE:
+        $requestedPackageLineItems = $this->getRequestedPackageLineItemsAllInOne($shipment);
+        break;
+
+      case static::PACKAGE_INDIVIDUAL:
+        $requestedPackageLineItems = $this->getRequestedPackageLineItemsIndividual($shipment);
+        break;
+
+      case static::PACKAGE_CALCULATE:
+        $requestedPackageLineItems = $this->getRequestedPackageLineItemsCalculate($shipment);
+        break;
+    }
+
+
+
+
+    return $requestedPackageLineItems;
+  }
+
+  /**
+   *   Returns Package Line Items for PACKAGE_ALL_IN_ONE strategy
+   *
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
+   *   The Shipment
+   *
+   * @return array
+   */
+  protected function getRequestedPackageLineItemsAllInOne(ShipmentInterface $shipment){
+    $requestedPackageLineItem = new RequestedPackageLineItem();
+    $requestedPackageLineItem
+      ->setSequenceNumber(1)
+      ->setGroupPackageCount(1)
+      ->setWeight($this->physicalWeightToFedex($shipment->getWeight()))
+      ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
+      ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
+      ->setItemDescription($shipment->getTitle()->render())
+      ->setSpecialServicesRequested(new PackageSpecialServicesRequested());
+    if ($this->configuration['options']['insurance']) {
+      $requestedPackageLineItem->setInsuredValue(new Money(
+        $shipment->getTotalDeclaredValue()->getCurrencyCode(),
+        $shipment->getTotalDeclaredValue()->getNumber()
+      ));
+    }
+    return [$requestedPackageLineItem];
+  }
+
+  /**
+   *   Returns Package Line Items for PACKAGE_CALCULATE strategy
+   *
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
+   *   The Shipment
+   *
+   * @return array
+   */
+  protected function getRequestedPackageLineItemsCalculate(ShipmentInterface $shipment) {
+    $package = $shipment->getPackageType();
+    $packageVolume = (int) $package->getHeight()->getNumber()
+      * (int) $package->getWidth()->getNumber()
+      * (int) $package->getLength()->getNumber();
+    $totalVolume = $this->getShipmentTotalVolume($shipment);
+
+    if ($totalVolume == 0 || $totalVolume < $packageVolume){
+      $count = 0;
+    }
+    else{
+      $count = ceil($totalVolume / $packageVolume);
+    }
+
+    $packageWeight = $shipment->getWeight()->divide((string) $count);
+
+    $requestedPackageLineItem = new RequestedPackageLineItem();
+    $requestedPackageLineItem
+      ->setGroupNumber(1)
+      ->setGroupPackageCount($count)
+      ->setWeight($this->physicalWeightToFedex($packageWeight))
+      ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
+      ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
+      ->setItemDescription($shipment->getTitle()->render())
+      ->setSpecialServicesRequested(new PackageSpecialServicesRequested());
+    if ($this->configuration['options']['insurance']) {
+      $requestedPackageLineItem->setInsuredValue(new Money(
+        $shipment->getTotalDeclaredValue()->getCurrencyCode(),
+        $shipment->getTotalDeclaredValue()->getNumber()
+      ));
+    }
+    return [$requestedPackageLineItem];
+  }
+
+  /**
+   *   Returns Package Line Items for PACKAGE_INDIVIDUAL strategy
+   *
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
+   *   The Shipment
+   *
+   * @return array
+   */
+  protected function getRequestedPackageLineItemsIndividual(ShipmentInterface $shipment) {
+    $requestedPackageLineItems = [];
     foreach ($shipment->getItems() as $delta => $shipmentItem) {
       $cleanTitle = trim(preg_replace('/ +/', ' ', preg_replace('/[^A-Za-z0-9 ]/', ' ', $shipmentItem->getTitle())));
 
@@ -292,43 +562,59 @@ class FedEx extends ShippingMethodBase {
       $requestedPackageLineItem
         ->setSequenceNumber($delta + 1)
         ->setGroupPackageCount(1)
-        ->setInsuredValue(new Money(
-          $shipmentItem->getDeclaredValue()->getCurrencyCode(),
-          $shipmentItem->getDeclaredValue()->getNumber()
-        ))
         ->setWeight($this->physicalWeightToFedex($shipmentItem->getWeight()))
         ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
         ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
-        ->setItemDescription($cleanTitle);
-
+        ->setItemDescription($cleanTitle)
+        ->setSpecialServicesRequested(new PackageSpecialServicesRequested());
+      if ($this->configuration['options']['insurance']){
+        $requestedPackageLineItem->setInsuredValue(new Money(
+          $shipmentItem->getDeclaredValue()->getCurrencyCode(),
+          $shipmentItem->getDeclaredValue()->getNumber()
+        ));
+      }
       $requestedPackageLineItems[] = $requestedPackageLineItem;
     }
-
     return $requestedPackageLineItems;
   }
-
   /**
    * Gets a RequestedShipment object for FedEx.
    *
    * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
    *   The shipment.
    *
-   * @return \Drupal\commerce_fedex\FedEx\StructType\RequestedShipment
+   * @return \NicholasCreativeMedia\FedExPHP\Structs\RequestedShipment
    *   The RequestedShipment object.
    */
   protected function getFedExShipment(ShipmentInterface $shipment) {
     $lineItems = $this->getRequestedPackageLineItems($shipment);
+    if ($this->configuration['options']['packaging'] == static::PACKAGE_CALCULATE){
+      $count = $lineItems[0]->getGroupPackageCount();
+    } else {
+      $count = count($lineItems);
+    }
 
     /** @var AddressInterface $recipientAddress */
     $recipientAddress = $shipment->getShippingProfile()->get('address')->first();
+    $shipperAddress = $shipment->getOrder()->getStore()->getAddress();
 
     $fedExShipment = new RequestedShipment();
     $fedExShipment
       ->setTotalWeight($this->physicalWeightToFedex($shipment->getWeight()))
-      ->setShipper($this->getAddressForFedEx($shipment->getOrder()->getStore()->getAddress()))
+      ->setShipper($this->getAddressForFedEx($shipperAddress))
       ->setRecipient($this->getAddressForFedEx($recipientAddress))
       ->setRequestedPackageLineItems($lineItems)
-      ->setPackageCount(count($lineItems));
+      ->setPackageCount($count)
+      ->setPreferredCurrency($shipment->getOrder()->getStore()->getDefaultCurrencyCode())
+      ->setDropoffType($this->configuration['options']['dropoff'])
+      ->addToRateRequestTypes($this->configuration['options']['rate_request_type'])
+      ->setRateRequestTypes();
+    if($this->configuration['options']['insurance']){
+      $fedExShipment->setTotalInsuredValue( new Money(
+        $shipment->getTotalDeclaredValue()->getCurrencyCode(),
+        $shipment->getTotalDeclaredValue()->getNumber()
+      ));
+    }
 
     return $fedExShipment;
   }
@@ -336,43 +622,84 @@ class FedEx extends ShippingMethodBase {
   /**
    * Gets a rate request object for FedEx.
    *
-   * @param \Drupal\commerce_fedex\FedEx\ServiceType\RateService $rateService
-   *   The rate service.
    * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
    *   The shipment.
    *
-   * @return \Drupal\commerce_fedex\FedEx\StructType\RateRequest
+   * @return \NicholasCreativeMedia\FedExPHP\Structs\RateRequest
    *   The rate request object.
    */
   protected function getRateRequest(RateService $rateService, ShipmentInterface $shipment) {
-    /** @var FedExServiceManager $fedEx */
-    $fedEx = \Drupal::service('commerce_fedex.fedex_service');
 
-    $rateRequest = $fedEx->getRateRequest($this->configuration);
-    $rateRequest
-      ->setVersion($rateService->version)
-      ->setRequestedShipment($this->getFedExShipment($shipment));
+    $rateRequest = $this->fedExServiceManager->getRateRequest($this->configuration);
+    $rateRequest->setRequestedShipment($this->getFedExShipment($shipment));
 
-    $rateRequestEvent = new RateRequestEvent($rateRequest, $rateService, $shipment);
-
-    // Allow other modules to alter the rate request before it's submitted.
-    $this->eventDispatcher->dispatch(CommerceFedExEvents::BEFORE_RATE_REQUEST, $rateRequestEvent);
-
-    return $rateRequestEvent->getRateRequest();
+    return $rateRequest;
   }
 
   /**
-   * Convert between \Drupal\physical\Weight and \Drupal\commerce_fedex\FedEx\StructType\Weight
+   *   getShipmentTotalVolume returns the shipment items total volume in the
+   *   same unit as the shipment package type
+   *
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
+   *   The shipment
+   *
+   * @return int
+   */
+  protected function getShipmentTotalVolume(ShipmentInterface $shipment){
+    $orderItemStorage = \Drupal::entityTypeManager()->getStorage('commerce_order_item');
+    $orderItemIds = [];
+
+    foreach ($shipment->getItems() as $shipmentItem){
+      $orderItemIds[] = $shipmentItem->getOrderItemId();
+    }
+
+    $orderItems = $orderItemStorage->loadMultiple($orderItemIds);
+    $unit = $shipment->getPackageType()->getHeight()->getUnit();
+
+    $totalVolume = 0;
+    foreach ($orderItems as $orderItem){
+      /** @var OrderItem $orderItem */
+      $purchased_entity = $orderItem->getPurchasedEntity();
+      if($purchased_entity->hasField('dimensions') && !$purchased_entity->get('dimensions')->isEmpty()){
+        /** @var DimensionsItem $dimensions */
+        $dimensions = $purchased_entity->get('dimensions')->first();
+        $volume = (int) $dimensions->getHeight()->convert($unit)->getNumber()
+                    * (int) $dimensions->getWidth()->convert($unit)->getNumber()
+                    * (int) $dimensions->getLength()->convert($unit)->getNumber();
+        $totalVolume += $volume * $orderItem->getQuantity();
+
+      }
+    }
+    return $totalVolume;
+
+  }
+  /**
+   *   Determine if we have the minimum information to connect to fedex
+   *
+   *
+   * @return bool
+   */
+  protected function isConfigured(){
+    $api = $this->configuration['api_information'];
+    return !empty($api['api_key']) && !empty($api['api_password']) && !empty($api['account_number']) && !empty($api['meter_number']);
+  }
+
+  /**
+   * Convert between \Drupal\physical\Weight and \Nicholas
    *
    * @param \Drupal\physical\Weight $weight
    *   The weight from Drupal.
    *
-   * @return \Drupal\commerce_fedex\FedEx\StructType\Weight
+   * @return \NicholasCreativeMedia\FedExPHP\Structs\Weight
    *   The weight for FedEx.
    *
    * @throws \Exception
    */
   protected function physicalWeightToFedex(PhysicalWeight $weight) {
+    if (!($weight instanceof PhysicalWeight)) {
+      throw new \Exception("Invalid Units for Weight");
+    }
+
     $number = $weight->getNumber();
 
     switch ($weight->getUnit()) {
@@ -407,7 +734,7 @@ class FedEx extends ShippingMethodBase {
    * @param \Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageTypeInterface $package
    *   The package.
    *
-   * @return \Drupal\commerce_fedex\FedEx\StructType\Dimensions
+   * @return \NicholasCreativeMedia\FedExPHP\Structs\Dimensions
    *   The dimensions.
    *
    * @throws \Exception
@@ -461,4 +788,23 @@ class FedEx extends ShippingMethodBase {
 
     return new Dimensions($length->getNumber(), $width->getNumber(), $height->getNumber(), $unit);
   }
+
+  public static function isDomestic(ShipmentInterface $shipment){
+    $shippingAddress = $shipment->getShippingProfile()->get('address')->first();
+    if ($shippingAddress instanceof AddressItem) {
+      /** @var  AddressItem $shippingAddress */
+      return $shipment->getOrder()->getStore()->getAddress()->getCountryCode() == $shippingAddress->getCountryCode();
+    }
+    return NULL;
+  }
+
+  public static function shippingType(ShipmentInterface $shipment){
+    if (static::isDomestic($shipment)){
+      return FedEx::SHIPPING_TYPE_DOMESTIC;
+    }
+    else {
+      return FedEx::SHIPPING_TYPE_INTERNATIONAL;
+    }
+  }
+
 }
