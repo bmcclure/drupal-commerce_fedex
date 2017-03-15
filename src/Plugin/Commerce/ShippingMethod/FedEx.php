@@ -452,28 +452,16 @@ class FedEx extends ShippingMethodBase {
       $requestedPackageLineItem
         ->setSequenceNumber($delta + 1)
         ->setGroupPackageCount(1)
-        ->setInsuredValue(new Money(
-          $shipmentItem->getDeclaredValue()->getCurrencyCode(),
-          $shipmentItem->getDeclaredValue()->getNumber()
-        ))
         ->setWeight($this->physicalWeightToFedex($shipmentItem->getWeight()))
         ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
         ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
         ->setItemDescription($shipmentItem->getTitle())
         ->setSpecialServicesRequested(new PackageSpecialServicesRequested());
-
-      /** @var OrderItem $orderItem */
-      $orderItem = $orderItemStorage->load($shipmentItem->getOrderItemId());
-      $purchasedEntity = $orderItem->getPurchasedEntity();
-      if ($purchasedEntity->hasField("commerce_fedex_dry_ice_$shippingType") && $purchasedEntity->get("commerce_fedex_dry_ice_$shippingType")->getValue()[0]['value']){
-        $requestedPackageLineItem
-          ->getSpecialServicesRequested()
-          ->addToSpecialServiceTypes(PackageSpecialServiceType::VALUE_DRY_ICE);
-        if (!empty($this->configuration['dry_ice'][$shippingType]['weight'])) {
-          $weight = $this->configuration['dry_ice'][$shippingType]['weight'];
-          $requestedPackageLineItem->getSpecialServicesRequested()
-            ->setDryIceWeight($this->physicalWeightToFedex(new PhysicalWeight($weight['number'], $weight['unit'])));
-        }
+      if ($this->configuration['options']['insurance']){
+        ->setInsuredValue(new Money(
+          $shipmentItem->getDeclaredValue()->getCurrencyCode(),
+          $shipmentItem->getDeclaredValue()->getNumber()
+        ))
       }
 
       $requestedPackageLineItems[] = $requestedPackageLineItem;
