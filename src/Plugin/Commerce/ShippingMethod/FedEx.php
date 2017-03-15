@@ -17,6 +17,7 @@ use Drupal\commerce_shipping\PackageTypeManagerInterface;
 use Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageTypeInterface;
 use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodBase;
 use Drupal\commerce_shipping\ShippingRate;
+use Drupal\physical\Plugin\Field\FieldType\DimensionsItem;
 use Drupal\physical\Weight as PhysicalWeight;
 use Drupal\physical\WeightUnit as PhysicalWeightUnits;
 use Drupal\physical\LengthUnit as PhysicalLengthUnits;
@@ -97,6 +98,21 @@ class FedEx extends ShippingMethodBase {
   const SHIPPING_TYPE_INTERNATIONAL = 'intl';
 
   /**
+   * Package All items in one box, ignoring dimensions
+   */
+  const PACKAGE_ALL_IN_ONE = 'allinone';
+
+  /**
+   * Package each line item in its own box, ignoring dimensions
+   */
+  const PACKAGE_INDIVIDUAL = 'individual';
+
+  /**
+   * Calculate volume to determine how many boxes are needed
+   */
+  const PACKAGE_CALCULATE = 'calculate';
+
+  /**
    * The event dispatcher.
    *
    * @var EventDispatcherInterface
@@ -173,7 +189,7 @@ class FedEx extends ShippingMethodBase {
         ],
         'options' => [
           'mode' => 'test',
-          'packaging' => 'allinone',
+          'packaging' => static::PACKAGE_ALL_IN_ONE,
           'rate_request_type' => RateRequestType::VALUE_NONE,
           'ship_to' => 'residential',
           'dropoff' => DropoffType::VALUE_REGULAR_PICKUP,
@@ -250,9 +266,9 @@ class FedEx extends ShippingMethodBase {
       '#title' => $this->t('Packaging Strategy'),
       '#description' => $this->t('Select your packaging strategy. "All items in one box" will ignore package type and product dimensions, and assume all items go in one box. "Each item in its own box" will create a box for each line item in the order, "Calculate" Will attempt to figure out how many boxes are needed based on package type volumes and product volumes similar to commerce_fedex 7.x'),
       '#options' => [
-        'allinone' => $this->t("All items in one box"),
-        'individual' => $this->t("Each item in its own box"),
-        'calculate' => $this->t("Calculate"),
+        static::PACKAGE_ALL_IN_ONE => $this->t("All items in one box"),
+        static::PACKAGE_INDIVIDUAL => $this->t("Each item in its own box"),
+        static::PACKAGE_CALCULATE => $this->t("Calculate"),
       ],
       '#default_value' => $this->configuration['options']['packaging']
     ];
@@ -447,6 +463,105 @@ class FedEx extends ShippingMethodBase {
 
     $requestedPackageLineItems = [];
 
+    switch ($this->configuration['options']['packaging']){
+      case static::PACKAGE_ALL_IN_ONE:
+        $requestedPackageLineItems = $this->getRequestedPackageLineItemsAllInOne($shipment);
+        break;
+
+      case static::PACKAGE_INDIVIDUAL:
+        $requestedPackageLineItems = $this->getRequestedPackageLineItemsIndividual($shipment);
+        break;
+
+      case static::PACKAGE_CALCULATE:
+        $requestedPackageLineItems = $this->getRequestedPackageLineItemsCalculate($shipment);
+        break;
+    }
+
+
+
+
+    return $requestedPackageLineItems;
+  }
+
+  /**
+   *   Returns Package Line Items for PACKAGE_ALL_IN_ONE strategy
+   *
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
+   *   The Shipment
+   *
+   * @return array
+   */
+  protected function getRequestedPackageLineItemsAllInOne(ShipmentInterface $shipment){
+    $requestedPackageLineItem = new RequestedPackageLineItem();
+    $requestedPackageLineItem
+      ->setSequenceNumber(1)
+      ->setGroupPackageCount(1)
+      ->setWeight($this->physicalWeightToFedex($shipment->getWeight()))
+      ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
+      ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
+      ->setItemDescription($shipment->getTitle()->render())
+      ->setSpecialServicesRequested(new PackageSpecialServicesRequested());
+    if ($this->configuration['options']['insurance']) {
+      $requestedPackageLineItem->setInsuredValue(new Money(
+        $shipment->getTotalDeclaredValue()->getCurrencyCode(),
+        $shipment->getTotalDeclaredValue()->getNumber()
+      ));
+    }
+    return [$requestedPackageLineItem];
+  }
+
+  /**
+   *   Returns Package Line Items for PACKAGE_CALCULATE strategy
+   *
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
+   *   The Shipment
+   *
+   * @return array
+   */
+  protected function getRequestedPackageLineItemsCalculate(ShipmentInterface $shipment) {
+    $package = $shipment->getPackageType();
+    $packageVolume = (int) $package->getHeight()->getNumber()
+      * (int) $package->getWidth()->getNumber()
+      * (int) $package->getLength()->getNumber();
+    $totalVolume = $this->getShipmentTotalVolume($shipment);
+
+    if ($totalVolume == 0 || $totalVolume < $packageVolume){
+      $count = 0;
+    }
+    else{
+      $count = ceil($totalVolume / $packageVolume);
+    }
+
+    $packageWeight = $shipment->getWeight()->divide((string) $count);
+
+    $requestedPackageLineItem = new RequestedPackageLineItem();
+    $requestedPackageLineItem
+      ->setGroupNumber(1)
+      ->setGroupPackageCount($count)
+      ->setWeight($this->physicalWeightToFedex($packageWeight))
+      ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
+      ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
+      ->setItemDescription($shipment->getTitle()->render())
+      ->setSpecialServicesRequested(new PackageSpecialServicesRequested());
+    if ($this->configuration['options']['insurance']) {
+      $requestedPackageLineItem->setInsuredValue(new Money(
+        $shipment->getTotalDeclaredValue()->getCurrencyCode(),
+        $shipment->getTotalDeclaredValue()->getNumber()
+      ));
+    }
+    return [$requestedPackageLineItem];
+  }
+
+  /**
+   *   Returns Package Line Items for PACKAGE_INDIVIDUAL strategy
+   *
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
+   *   The Shipment
+   *
+   * @return array
+   */
+  protected function getRequestedPackageLineItemsIndividual(ShipmentInterface $shipment) {
+    $requestedPackageLineItems = [];
     foreach ($shipment->getItems() as $delta => $shipmentItem) {
       $requestedPackageLineItem = new RequestedPackageLineItem();
       $requestedPackageLineItem
@@ -458,18 +573,15 @@ class FedEx extends ShippingMethodBase {
         ->setItemDescription($shipmentItem->getTitle())
         ->setSpecialServicesRequested(new PackageSpecialServicesRequested());
       if ($this->configuration['options']['insurance']){
-        ->setInsuredValue(new Money(
+        $requestedPackageLineItem->setInsuredValue(new Money(
           $shipmentItem->getDeclaredValue()->getCurrencyCode(),
           $shipmentItem->getDeclaredValue()->getNumber()
-        ))
+        ));
       }
-
       $requestedPackageLineItems[] = $requestedPackageLineItem;
     }
-
     return $requestedPackageLineItems;
   }
-
   /**
    * Gets a RequestedShipment object for FedEx.
    *
@@ -481,6 +593,11 @@ class FedEx extends ShippingMethodBase {
    */
   protected function getFedExShipment(ShipmentInterface $shipment) {
     $lineItems = $this->getRequestedPackageLineItems($shipment);
+    if ($this->configuration['options']['packaging'] == static::PACKAGE_CALCULATE){
+      $count = $lineItems[0]->getGroupPackageCount();
+    } else {
+      $count = count($lineItems);
+    }
 
     /** @var AddressInterface $recipientAddress */
     $recipientAddress = $shipment->getShippingProfile()->get('address')->first();
@@ -492,10 +609,17 @@ class FedEx extends ShippingMethodBase {
       ->setShipper($this->getAddressForFedEx($shipperAddress))
       ->setRecipient($this->getAddressForFedEx($recipientAddress))
       ->setRequestedPackageLineItems($lineItems)
-      ->setPackageCount(count($lineItems))
+      ->setPackageCount($count)
+      ->setPreferredCurrency($shipment->getOrder()->getStore()->getDefaultCurrencyCode())
       ->setDropoffType($this->configuration['options']['dropoff'])
       ->addToRateRequestTypes($this->configuration['options']['rate_request_type'])
       ->setRateRequestTypes();
+    if($this->configuration['options']['insurance']){
+      $fedExShipment->setTotalInsuredValue( new Money(
+        $shipment->getTotalDeclaredValue()->getCurrencyCode(),
+        $shipment->getTotalDeclaredValue()->getNumber()
+      ));
+    }
 
     return $fedExShipment;
   }
@@ -517,6 +641,43 @@ class FedEx extends ShippingMethodBase {
     return $rateRequest;
   }
 
+  /**
+   *   getShipmentTotalVolume returns the shipment items total volume in the
+   *   same unit as the shipment package type
+   *
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
+   *   The shipment
+   *
+   * @return int
+   */
+  protected function getShipmentTotalVolume(ShipmentInterface $shipment){
+    $orderItemStorage = \Drupal::entityTypeManager()->getStorage('commerce_order_item');
+    $orderItemIds = [];
+
+    foreach ($shipment->getItems() as $shipmentItem){
+      $orderItemIds[] = $shipmentItem->getOrderItemId();
+    }
+
+    $orderItems = $orderItemStorage->loadMultiple($orderItemIds);
+    $unit = $shipment->getPackageType()->getHeight()->getUnit();
+
+    $totalVolume = 0;
+    foreach ($orderItems as $orderItem){
+      /** @var OrderItem $orderItem */
+      $purchased_entity = $orderItem->getPurchasedEntity();
+      if($purchased_entity->hasField('dimensions') && !$purchased_entity->get('dimensions')->isEmpty()){
+        /** @var DimensionsItem $dimensions */
+        $dimensions = $purchased_entity->get('dimensions')->first();
+        $volume = (int) $dimensions->getHeight()->convert($unit)->getNumber()
+                    * (int) $dimensions->getWidth()->convert($unit)->getNumber()
+                    * (int) $dimensions->getLength()->convert($unit)->getNumber();
+        $totalVolume += $volume * $orderItem->getQuantity();
+
+      }
+    }
+    return $totalVolume;
+
+  }
   /**
    *   Determine if we have the minimum information to connect to fedex
    *
