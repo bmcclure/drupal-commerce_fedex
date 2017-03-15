@@ -13,14 +13,19 @@ use NicholasCreativeMedia\FedExPHP\Structs\WebAuthenticationCredential;
 use NicholasCreativeMedia\FedExPHP\Structs\WebAuthenticationDetail;
 
 /**
- * Class FedExServiceManager
+ * Class FedExServiceManager Manages Fedex Api
+ *
  * @package Drupal\commerce_fedex
  */
-class FedExServiceManager {
+class FedExServiceManager implements FedExServiceManagerInterface {
 
   /**
+   * Function to handle any additional Services
+   *
    * @param $name
+   *   The Service name
    * @param $arguments
+   *   configuration data
    * @return mixed
    * @throws \Exception
    */
@@ -54,7 +59,11 @@ class FedExServiceManager {
   }
 
   /**
+   * Gets a new rate request
+   *
    * @param array $configuration
+   * The plugin configuration
+   *
    * @return \NicholasCreativeMedia\FedExPHP\Structs\RateRequest
    */
   public function getRateRequest(array $configuration) {
@@ -67,9 +76,14 @@ class FedExServiceManager {
   }
 
   /**
+   * Gets a new RateService
+   *
    * @param array $configuration
+   *  The Plugin Configuration
    * @param array $wsdlOptions
+   *  Additional options to send to AbstractSoapClientBase
    * @param bool $resetSoapClient
+   *  Whether to get a new soap client
    * @return \NicholasCreativeMedia\FedExPHP\Services\RateService
    */
   public function getRateService(array $configuration, array $wsdlOptions = [], $resetSoapClient = TRUE) {
@@ -79,7 +93,10 @@ class FedExServiceManager {
   }
 
   /**
+   * Gets a new TrackRequest
+   *
    * @param array $configuration
+   *  The Plugin Configuration
    * @return \NicholasCreativeMedia\FedExPHP\Structs\TrackRequest
    */
   public function getTrackRequest(array $configuration) {
@@ -92,9 +109,14 @@ class FedExServiceManager {
   }
 
   /**
+   * Gets a new TrackService
+   *
    * @param array $configuration
+   *  The Plugin Configuration
    * @param array $wsdlOptions
+   *  Additional options to send to AbstractSoapClientBase
    * @param bool $resetSoapClient
+   *  Whether to get a new soap client
    * @return \NicholasCreativeMedia\FedExPHP\Services\TrackService
    */
   public function getTrackService(array $configuration, array $wsdlOptions = [], $resetSoapClient = TRUE) {
@@ -104,7 +126,10 @@ class FedExServiceManager {
   }
 
   /**
+   * Gets a new ShipRequest
+   *
    * @param array $configuration
+   *  The Plugin Configuration
    * @return \NicholasCreativeMedia\FedExPHP\Structs\ProcessShipmentRequest
    */
   public function getShipRequest(array $configuration) {
@@ -117,9 +142,14 @@ class FedExServiceManager {
   }
 
   /**
+   * Gets a new ShipService
+   *
    * @param array $configuration
+   *  The Plugin Configuration
    * @param array $wsdlOptions
+   *  Additional options to send to AbstractSoapClientBase
    * @param bool $resetSoapClient
+   *  Whether to get a new soap client
    * @return \NicholasCreativeMedia\FedExPHP\Services\ShipService
    */
   public function getShipService(array $configuration, array $wsdlOptions = [], $resetSoapClient = TRUE) {
@@ -129,7 +159,10 @@ class FedExServiceManager {
   }
 
   /**
+   * Gets a new WebAuthentication object
+   *
    * @param array $configuration
+   *  The Plugin Configuration
    * @return \NicholasCreativeMedia\FedExPHP\Structs\WebAuthenticationDetail
    */
   public function getWebAuthenticationDetail(array $configuration) {
@@ -140,7 +173,10 @@ class FedExServiceManager {
   }
 
   /**
+   * Gets a new ClientDetail object
+   *
    * @param array $configuration
+   *  The Plugin Configuration
    * @return \NicholasCreativeMedia\FedExPHP\Structs\ClientDetail
    */
   public function getClientDetail(array $configuration) {
@@ -149,6 +185,14 @@ class FedExServiceManager {
     return $clientDetail;
   }
 
+  /**
+   *   getVersion Return the current WSDL version of a service
+   *
+   * @param $service
+   *
+   * @return mixed
+   * @throws \Exception
+   */
   public function getVersion($service){
     $class = '\NicholasCreativeMedia\FedExPHP\Services\\' . $service;
     if (class_exists($class)){
