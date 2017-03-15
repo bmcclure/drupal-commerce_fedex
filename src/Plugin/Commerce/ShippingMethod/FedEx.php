@@ -405,6 +405,7 @@ class FedEx extends ShippingMethodBase {
   public static function enumToList(array $enums){
     return array_combine($enums, array_map(function ($d) { return ucwords(str_replace('_', ' ', $d)); }, $enums));
   }
+  
   /**
    * Gets a FedEx address object from the provided Drupal address object.
    *
@@ -540,6 +541,7 @@ class FedEx extends ShippingMethodBase {
     $api = $this->configuration['api_information'];
     return !empty($api['api_key']) && !empty($api['api_password']) && !empty($api['account_number']) && !empty($api['meter_number']);
   }
+
   /**
    * Convert between \Drupal\physical\Weight and \Nicholas
    *
