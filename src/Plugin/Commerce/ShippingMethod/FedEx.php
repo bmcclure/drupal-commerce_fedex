@@ -280,7 +280,7 @@ class FedEx extends ShippingMethodBase {
       '#default_value' => $this->configuration['options']['rate_request_type'],
     ];
 
-    $form['options']['ship_to'] = [
+    /*$form['options']['ship_to'] = [
       '#type' => 'select',
       '#title' => $this->t('Ship to destination type'),
       '#description' => $this->t('Leave this set as residential unless you only ship to commercial addresses.'),
@@ -288,8 +288,8 @@ class FedEx extends ShippingMethodBase {
         'residential' => $this->t('Residential and Commercial'),
         'commercial' => $this->t('Commercial Only')
       ],
-      '#default_value' => $this->configuration['options']['ship_to'],
-    ];
+      '#efault_value' => $this->configuration['options']['ship_to'],
+    ]; */
 
     $form['options']['dropoff'] = [
       '#type' => 'select',
