@@ -10,10 +10,12 @@ use Drupal\commerce_shipping\Packer\DefaultPacker;
 use Drupal\commerce_shipping\Packer\PackerInterface;
 use Drupal\commerce_shipping\ProposedShipment;
 use Drupal\commerce_shipping\ShipmentItem;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 use Drupal\physical\Plugin\Field\FieldType\MeasurementItem;use Drupal\physical\Weight;
 use Drupal\physical\WeightUnit;
 use Drupal\profile\Entity\ProfileInterface;
+use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
 /**
  * Defines a shipment packer for FedEx.
@@ -23,6 +25,27 @@ use Drupal\profile\Entity\ProfileInterface;
 class CommerceFedExPacker extends DefaultPacker implements PackerInterface {
 
   use StringTranslationTrait;
+
+  /**
+   * The event dispatcher.
+   *
+   * @var \Symfony\Component\EventDispatcher\EventDispatcherInterface
+   */
+  protected $eventDispatcher;
+
+  /**
+   * Constructs a new DefaultPacker object.
+   *
+   * @param \Drupal\Core\Entity\EntityTypeManagerInterface $entity_type_manager
+   *   The entity type manager.
+   *
+   * @param \Symfony\Component\EventDispatcher\EventDispatcherInterface $event_dispatcher
+   *   The event dispatcher.
+   */
+  public function __construct(EntityTypeManagerInterface $entity_type_manager, EventDispatcherInterface $event_dispatcher) {
+    $this->entityTypeManager = $entity_type_manager;
+    $this->eventDispatcher = $event_dispatcher;
+  }
 
   /**
    * {@inheritdoc}
