@@ -148,7 +148,7 @@ class FedEx extends ShippingMethodBase {
           'meter_number' => '',
         ],
         'options' => [
-          'rate_service_type' => RateRequestType::VALUE_NONE,
+          'rate_request_type' => RateRequestType::VALUE_NONE,
           'ship_to' => 'residential',
           'dropoff' => DropoffType::VALUE_REGULAR_PICKUP,
           'insurance' => false,
@@ -224,52 +224,58 @@ class FedEx extends ShippingMethodBase {
       '#description' => $this->t('Enter your FedEx meter number.'),
       '#default_value' => $this->configuration['api_information']['meter_number'],
     ];
+
     $form['options'] = [
       '#type' => 'details',
       '#title' => $this->t('Fedex Options'),
       '#description' => $this->t('Additional options for Fedex'),
       '#weight' => 15,
     ];
-    $form['options']['rate_service_type'] = array(
+
+    $form['options']['rate_request_type'] = [
       '#type' => 'select',
       '#title' => $this->t('Pricing options'),
       '#description' => $this->t('Select the pricing option to use when requesting a rate quote. Note that discounted rates are only available when sending production requests.'),
-      '#options' => array(
+      '#options' => [
         RateRequestType::VALUE_NONE => $this->t('Standard pricing (LIST)'),
         RateRequestType::VALUE_PREFERRED => $this->t('This FedEx account\'s discounted pricing (ACCOUNT)'),
-      ),
-      '#default_value' => $this->configuration['options']['rate_service_type'],
-    );
-    $form['options']['ship_to'] = array(
+      ],
+      '#default_value' => $this->configuration['options']['rate_request_type'],
+    ];
+
+    $form['options']['ship_to'] = [
       '#type' => 'select',
       '#title' => $this->t('Ship to destination type'),
       '#description' => $this->t('Leave this set as residential unless you only ship to commercial addresses.'),
-      '#options' => array(
+      '#options' => [
         'residential' => $this->t('Residential and Commercial'),
         'commercial' => $this->t('Commercial Only')
-      ),
+      ],
       '#default_value' => $this->configuration['options']['ship_to'],
-    );
-    $form['options']['dropoff'] = array(
+    ];
+
+    $form['options']['dropoff'] = [
       '#type' => 'select',
       '#title' => $this->t('Default dropoff/pickup location for your FedEx shipments'),
       '#options' => static::enumToList(DropoffType::getValidValues()),
       '#default_value' => $this->configuration['options']['dropoff'],
-    );
-    $form['options']['insurance'] = array(
+    ];
+
+    $form['options']['insurance'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('Include insurance value of shippable line items in FedEx rate requests'),
       '#default_value' => $this->configuration['options']['insurance'],
-    );
-    $form['options']['log'] = array(
+    ];
+
+    $form['options']['log'] = [
       '#type' => 'checkboxes',
       '#title' => $this->t('Log the following messages for debugging'),
-      '#options' => array(
+      '#options' => [
         'request' => $this->t('API request messages'),
         'response' => $this->t('API response messages'),
-      ),
+      ],
       '#default_value' => $this->configuration['options']['log'],
-    );
+    ];
 
 
 
@@ -338,7 +344,7 @@ class FedEx extends ShippingMethodBase {
     if ($this->configuration['options']['log']['response']){
       $watchdog->info("Fedex Response Received <br>@response", ['@response' => var_export($response, true)]);
     }
-    
+
     $rates = [];
     if ($response->getHighestSeverity() == 'SUCCESS') {
       foreach ($response->getRateReplyDetails() as $rateDetails) {
@@ -482,7 +488,9 @@ class FedEx extends ShippingMethodBase {
       ->setShipper($this->getAddressForFedEx($shipperAddress))
       ->setRecipient($this->getAddressForFedEx($recipientAddress))
       ->setRequestedPackageLineItems($lineItems)
-      ->setPackageCount(count($lineItems));
+      ->setPackageCount(count($lineItems))
+      ->setDropoffType($this->configuration['options']['dropoff'])
+      ->setRateRequestTypes($this->configuration['options']['rate_request_type']);
 
     return $fedExShipment;
   }
