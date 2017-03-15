@@ -510,10 +510,8 @@ class FedEx extends ShippingMethodBase {
    *   The rate request object.
    */
   protected function getRateRequest(RateService $rateService, ShipmentInterface $shipment) {
-    /** @var FedExServiceManager $fedEx */
-    $fedEx = \Drupal::service('commerce_fedex.fedex_service');
 
-    $rateRequest = $fedEx->getRateRequest($this->configuration);
+    $rateRequest = $this->fedExServiceManager->getRateRequest($this->configuration);
     $rateRequest->setRequestedShipment($this->getFedExShipment($shipment));
 
     return $rateRequest;
