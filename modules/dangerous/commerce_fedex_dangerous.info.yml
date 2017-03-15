@@ -1,4 +1,4 @@
-name: 'FedEx: Dangerous Goods (Commerce Shipping) (Experimental)'
+name: 'Commerce FedEx: Dangerous Goods (Experimental)'
 type: module
 description: 'Provides the Dangerous Goods special service for FedEx Express. WARNING: Experimental! This module is not ready for use.'
 package: Commerce (shipping)

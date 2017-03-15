@@ -1,4 +1,4 @@
-name: 'FedEx: Dry Ice (Commerce Shipping) (Experimental)'
+name: 'Commerce FedEx: Dry Ice (Experimental)'
 type: module
 description: 'Provides the Dry Ice special service for FedEx. WARNING: Experimental! This module is not ready for use.'
 package: Commerce (shipping)

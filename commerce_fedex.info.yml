@@ -1,4 +1,4 @@
-name: FedEx (Commerce Shipping)
+name: Commerce FedEx
 type: module
 description: 'Provides FedEx integration with Commerce Shipping.'
 package: Commerce (shipping)
