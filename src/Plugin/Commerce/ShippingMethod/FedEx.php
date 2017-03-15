@@ -9,6 +9,7 @@ use Drupal\commerce_fedex\Event\ConfigurationFormEvent;
 use Drupal\commerce_fedex\Event\DefaultConfigurationEvent;
 use Drupal\commerce_fedex\Event\RateRequestEvent;
 use Drupal\commerce_fedex\FedExServiceManager;
+use Drupal\commerce_fedex\FedExServiceManagerInterface;
 use Drupal\commerce_order\Entity\OrderItem;
 use Drupal\commerce_price\Price;
 use Drupal\commerce_shipping\Entity\ShipmentInterface;
@@ -40,6 +41,7 @@ use NicholasCreativeMedia\FedExPHP\Structs\VersionId;
 use NicholasCreativeMedia\FedExPHP\Structs\Weight as FedexWeight;
 use NicholasCreativeMedia\FedExPHP\Enums\WeightUnits as FedexWeightUnits;
 use NicholasCreativeMedia\FedExPHP\Enums\LinearUnits as FedexLengthUnits;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 
@@ -102,6 +104,20 @@ class FedEx extends ShippingMethodBase {
   protected $eventDispatcher;
 
   /**
+   * Commerce Fedex Logger Channel
+   *
+   * @var LoggerInterface
+   */
+  protected $watchdog;
+
+  /**
+   * The Fedex Service Manager
+   *
+   * @var FedExServiceManagerInterface
+   */
+  protected $fedExServiceManager;
+
+  /**
    * Constructs a new ShippingMethodBase object.
    *
    * @param array $configuration
@@ -112,11 +128,17 @@ class FedEx extends ShippingMethodBase {
    *   The plugin implementation definition.
    * @param \Drupal\commerce_shipping\PackageTypeManagerInterface $package_type_manager
    *   The package type manager.
+   * @param \Drupal\commerce_fedex\FedExServiceManagerInterface $fedExServiceManager
+   *   The FedEx Service Manager
+   * @param \Psr\Log\LoggerInterface $watchdog
+   *   Commerce Fedex Logger Channel
    * @param \Symfony\Component\EventDispatcher\EventDispatcherInterface $event_dispatcher
    *   The event dispatcher.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, PackageTypeManagerInterface $package_type_manager, EventDispatcherInterface $event_dispatcher) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, PackageTypeManagerInterface $package_type_manager, EventDispatcherInterface $event_dispatcher, FedExServiceManagerInterface $fedExServiceManager, LoggerInterface $watchdog) {
     $this->eventDispatcher = $event_dispatcher;
+    $this->watchdog = $watchdog;
+    $this->fedExServiceManager = $fedExServiceManager;
 
     parent::__construct($configuration, $plugin_id, $plugin_definition, $package_type_manager);
   }
@@ -130,7 +152,9 @@ class FedEx extends ShippingMethodBase {
       $plugin_id,
       $plugin_definition,
       $container->get('plugin.manager.commerce_package_type'),
-      $container->get('event_dispatcher')
+      $container->get('event_dispatcher'),
+      $container->get('commerce_fedex.fedex_service'),
+      $container->get('logger.channel.commerce_fedex')
     );
   }
 
@@ -329,13 +353,7 @@ class FedEx extends ShippingMethodBase {
    */
   public function calculateRates(ShipmentInterface $shipment) {
 
-    /** @var FedExServiceManager $fedEx */
-    $fedEx = \Drupal::service('commerce_fedex.fedex_service');
-
-    /** @var \Psr\Log\LoggerInterface $watchdog */
-    $watchdog = \Drupal::service('logger.channel.commerce_fedex');
-
-    $rateService = $fedEx->getRateService($this->configuration);
+    $rateService = $this->fedExServiceManager->getRateService($this->configuration);
     $rateRequest = $this->getRateRequest($rateService, $shipment);
 
     // Allow other modules to alter the rate request before it's submitted.
@@ -344,18 +362,18 @@ class FedEx extends ShippingMethodBase {
 
     $rateRequest = $rateRequestEvent->getRateRequest();
     if ($this->configuration['options']['log']['request']){
-      $watchdog->info("Fedex Request Sent <br>@raterequest", ['@raterequest' => var_export($rateRequest, true)]);
+      $this->watchdog->info("Fedex Request Sent <br>@raterequest", ['@raterequest' => var_export($rateRequest, true)]);
     }
     $rateRequest->setVersion($rateService->version);
     $response = $rateService->getRates($rateRequest);
 
     if (!$response) {
-      $watchdog->notice('Fedex sent no response back <br>@raterequest', ['@raterequest' => var_export($rateRequest, true)]);
+      $this->watchdog->notice('Fedex sent no response back <br>@raterequest', ['@raterequest' => var_export($rateRequest, true)]);
       return [];
     }
 
     if ($this->configuration['options']['log']['response']){
-      $watchdog->info("Fedex Response Received <br>@response", ['@response' => var_export($response, true)]);
+      $this->watchdog->info("Fedex Response Received <br>@response", ['@response' => var_export($response, true)]);
     }
 
     $rates = [];
@@ -503,7 +521,8 @@ class FedEx extends ShippingMethodBase {
       ->setRequestedPackageLineItems($lineItems)
       ->setPackageCount(count($lineItems))
       ->setDropoffType($this->configuration['options']['dropoff'])
-      ->addToRateRequestTypes($this->configuration['options']['rate_request_type']);
+      ->addToRateRequestTypes($this->configuration['options']['rate_request_type'])
+      ->setRateRequestTypes();
 
     return $fedExShipment;
   }
