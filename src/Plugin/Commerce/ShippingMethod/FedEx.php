@@ -431,22 +431,6 @@ class FedEx extends ShippingMethodBase {
   }
 
   /**
-   * Sets Details for Hazmat/Dangerous Goods
-   *
-   * @param $purchased_entity
-   *    A product with the information needed to create the soap request
-   * @return \NicholasCreativeMedia\FedExPHP\Structs\DangerousGoodsDetail
-   *    A Struct to be added to the package detail
-   */
-  protected function getDangerousGoodsDetail($purchased_entity){
-    $dangerousGoodsDetail = new DangerousGoodsDetail();
-    $dangerousGoodsDetail->setAccessibility(DangerousGoodsAccessibilityType::VALUE_ACCESSIBLE);
-    $dangerousGoodsDetail->setOptions([HazardousCommodityOptionType::VALUE_HAZARDOUS_MATERIALS]);
-    $dangerousGoodsDetail->setRegulation(HazardousCommodityRegulationType::VALUE_DOT);
-    return $dangerousGoodsDetail;
-  }
-
-  /**
    * Gets the requested package line items.
    *
    * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
