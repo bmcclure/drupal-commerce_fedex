@@ -503,7 +503,7 @@ class FedEx extends ShippingMethodBase {
       ->setRequestedPackageLineItems($lineItems)
       ->setPackageCount(count($lineItems))
       ->setDropoffType($this->configuration['options']['dropoff'])
-      ->setRateRequestTypes($this->configuration['options']['rate_request_type']);
+      ->addToRateRequestTypes($this->configuration['options']['rate_request_type']);
 
     return $fedExShipment;
   }
