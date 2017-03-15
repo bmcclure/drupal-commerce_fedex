@@ -24,4 +24,7 @@ final class CommerceFedExEvents {
 
   const GET_DEFAULT_CONFIGURATION = 'commerce_fedex.get_default_configuration';
 
+  const PACKER_PREPACK = 'commerce_fedex.packer_packing';
+
+
 }
