@@ -15,8 +15,7 @@ use Drupal\Core\StringTranslation\StringTranslationTrait;
  *
  * @package Drupal\commerce_fedex_dry_ice\EventSubscriber
  */
-class FedExEventSubscriber implements EventSubscriberInterface
-{
+class FedExEventSubscriber implements EventSubscriberInterface {
   use StringTranslationTrait;
 
   /**
