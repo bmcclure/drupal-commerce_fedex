@@ -2,13 +2,13 @@
   "name": "drupal/commerce_fedex",
   "type": "drupal-module",
   "description": "Provides FedEx integration with Commerce Shipping.",
-  "homepage": "https://github.com/TopFloorTech/drupal-commerce_fedex",
+  "homepage": "https://www.drupal.org/project/commerce_fedex",
   "license": "GPL-2.0+",
   "require": {
+    "php": ">=5.6",
+    "ext-soap": "*",
     "drupal/commerce": "~2",
     "drupal/commerce_shipping": "~2",
-    "php": ">=5.3.3",
-    "ext-soap": "*",
     "nicholascreativemedia/fedexphp": "~1"
   }
 }
