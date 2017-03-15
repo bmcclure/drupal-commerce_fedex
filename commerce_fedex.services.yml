@@ -11,4 +11,3 @@ services:
   logger.channel.commerce_fedex:
     parent: logger.channel_base
     arguments: ['commerce_fedex']
-    
