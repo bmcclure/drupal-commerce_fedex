@@ -1,7 +1,0 @@
-name: 'FedEx: Hazardous Materials (Commerce Shipping)'
-type: module
-description: 'Provides the Hazardous Materials special service for FedEx Ground.'
-package: Commerce (shipping)
-core: 8.x
-dependencies:
-  - commerce_fedex
