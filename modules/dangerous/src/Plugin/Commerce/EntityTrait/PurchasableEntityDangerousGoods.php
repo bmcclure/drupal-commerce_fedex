@@ -2,7 +2,7 @@
 
 namespace Drupal\commerce_fedex_dangerous\Plugin\Commerce\EntityTrait;
 
-use Drupal\commerce_fedex\PurchasableEntityHazardousBase;
+use Drupal\commerce_fedex_dangerous\PurchasableEntityHazardousBase;
 
 /**
  * Provides the "fedex_dangerous" trait.

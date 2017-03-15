@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\commerce_fedex;
+namespace Drupal\commerce_fedex_dangerous;
 
 use Drupal\commerce\BundleFieldDefinition;
 use Drupal\commerce\Plugin\Commerce\EntityTrait\EntityTraitBase;
