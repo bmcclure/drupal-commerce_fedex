@@ -1,5 +1,6 @@
 services:
   commerce_fedex_dry_ice.fedex_event_subscriber:
     class: '\Drupal\commerce_fedex_dry_ice\EventSubscriber\FedExEventSubscriber'
+    arguments: ['@plugin.manager.commerce_package_type']
     tags:
       - { name: 'event_subscriber' }

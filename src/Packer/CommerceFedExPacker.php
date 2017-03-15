@@ -2,7 +2,10 @@
 
 namespace Drupal\commerce_fedex\Packer;
 
+use Drupal\commerce_fedex\Event\BeforePackEvent;
+use Drupal\commerce_fedex\Event\CommerceFedExEvents;
 use Drupal\commerce_order\Entity\OrderInterface;
+use Drupal\commerce_order\Entity\OrderItemInterface;
 use Drupal\commerce_shipping\Packer\DefaultPacker;
 use Drupal\commerce_shipping\Packer\PackerInterface;
 use Drupal\commerce_shipping\ProposedShipment;
@@ -13,7 +16,8 @@ use Drupal\physical\WeightUnit;
 use Drupal\profile\Entity\ProfileInterface;
 
 /**
- * Class CommerceFedExPacker
+ * Defines a shipment packer for FedEx.
+ *
  * @package Drupal\commerce_fedex\Packer
  */
 class CommerceFedExPacker extends DefaultPacker implements PackerInterface {
@@ -21,9 +25,9 @@ class CommerceFedExPacker extends DefaultPacker implements PackerInterface {
   use StringTranslationTrait;
 
   /**
-   * @inheritdoc
+   * {@inheritdoc}
    */
-  public function pack(OrderInterface $order, ProfileInterface $shipping_profile) {
+  public function pack(OrderInterface $order, ProfileInterface $shippingProfile) {
 
     $shipments = [
       [
@@ -32,38 +36,27 @@ class CommerceFedExPacker extends DefaultPacker implements PackerInterface {
       ]
     ];
 
-    foreach ($order->getItems() as $order_item) {
+    foreach ($this->getOrderItems($order, $shippingProfile) as $order_item) {
       $purchased_entity = $order_item->getPurchasedEntity();
+
       // Ship only shippable purchasable entity types.
       if (!$purchased_entity || !$purchased_entity->hasField('weight')) {
         continue;
       }
 
-      // The weight will be empty if the shippable trait was added but the
-      // existing entities were not updated. add a gram because fedex doesn't like zero weights
-      if ($purchased_entity->get('weight')->isEmpty()) {
-        $purchased_entity->set('weight', new Weight(1, WeightUnit::GRAM));
-      }
-
       $quantity = $order_item->getQuantity();
 
-      /** @var MeasurementItem $weightItem */
-      $weightItem = $purchased_entity->get('weight')->first();
-      /** @var \Drupal\physical\Weight $weight */
-      $weight = $weightItem->toMeasurement();
-
-      $shipmentItem = new ShipmentItem([
+      $shipments[0]['items'][] = new ShipmentItem([
         'order_item_id' => $order_item->id(),
         'title' => $order_item->getTitle(),
         'quantity' => $quantity,
-        'weight' => $weight->multiply($quantity),
+        'weight' => $this->getWeight($order_item)->multiply($quantity),
         'declared_value' => $order_item->getUnitPrice()->multiply($quantity),
       ]);
-      $shipments[0]['items'][] = $shipmentItem;
     }
 
-
     $proposed_shipments = [];
+
     foreach($shipments as  $shipment){
       if (!empty($shipment['items'])) {
         $proposed_shipments[] = new ProposedShipment([
@@ -71,10 +64,56 @@ class CommerceFedExPacker extends DefaultPacker implements PackerInterface {
           'order_id' => $order->id(),
           'title' => $shipment['title'],
           'items' => $shipment['items'],
-          'shipping_profile' => $shipping_profile,
+          'shipping_profile' => $shippingProfile,
         ]);
       }
     }
+
     return $proposed_shipments;
+  }
+
+  /**
+   * Gets the weight of the order item.
+   *
+   * The weight will be empty if the shippable trait was added but the existing
+   * entities were not updated. Add 1 gram as fedex doesn't support 0 weights.
+   *
+   * @param \Drupal\commerce_order\Entity\OrderItemInterface $orderItem
+   *   The order item.
+   *
+   * @return \Drupal\physical\Weight
+   *   The weight.
+   */
+  protected function getWeight(OrderItemInterface $orderItem) {
+    $purchasedEntity = $orderItem->getPurchasedEntity();
+
+    if ($purchasedEntity->get('weight')->isEmpty()) {
+      $weight = new Weight(1, WeightUnit::GRAM);
+    } else {
+      /** @var MeasurementItem $weightItem */
+      $weightItem = $purchasedEntity->get('weight')->first();
+
+      $weight = $weightItem->toMeasurement();
+    }
+
+    return $weight;
+  }
+
+  /**
+   * Gets the order items and fires an event to allow overriding before packing.
+   *
+   * @param \Drupal\commerce_order\Entity\OrderInterface $order
+   *   The order.
+   * @param \Drupal\profile\Entity\ProfileInterface $shipping_profile
+   *   The shipping profile.
+   *
+   * @return \Drupal\commerce_order\Entity\OrderItemInterface[]
+   *   The order items.
+   */
+  protected function getOrderItems(OrderInterface $order, ProfileInterface $shipping_profile) {
+    $event = new BeforePackEvent($order->getItems(), $order, $shipping_profile);
+    $this->eventDispatcher->dispatch(CommerceFedExEvents::BEFORE_PACK, $event);
+
+    return $event->getOrderItems();
   }
 }

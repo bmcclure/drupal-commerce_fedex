@@ -5,34 +5,44 @@ namespace Drupal\commerce_fedex\Event;
 use Symfony\Component\EventDispatcher\Event;
 
 /**
- * Class DefaultConfigurationEvent
- * @package Drupal\commerce_fedex\Event
+ * Defines the default configuration event for FedEx.
+ *
+ * @see \Drupal\commerce_fedex\Event\CommerceFedExEvents
  */
 class DefaultConfigurationEvent extends Event {
 
   /**
-   * The Shipping method configuration
+   * The Shipping method configuration.
    *
    * @var array
    */
   protected $configuration;
 
   /**
-   * @inheritdoc
+   * Constructs a new DefaultConfigurationEvent.
+   *
+   * @param array $configuration
+   *   The shipping method configuration.
    */
   public function __construct(array $configuration){
     $this->configuration = $configuration;
   }
 
   /**
+   * Gets the configuration.
+   *
    * @return array
+   *   The configuration.
    */
-  public function getConfiguration(): array {
+  public function getConfiguration() {
     return $this->configuration;
   }
 
   /**
+   * Sets the configuration.
+   *
    * @param array $configuration
+   *   The configuration.
    */
   public function setConfiguration(array $configuration) {
     $this->configuration = $configuration;

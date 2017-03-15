@@ -9,7 +9,7 @@ use Drupal\commerce_fedex\PurchasableEntityHazardousBase;
  *
  * @CommerceEntityTrait(
  *   id = "fedex_hazardous",
- *   label = @Translation("FedEx: Hazardous materials"),
+ *   label = @Translation("FedEx: Enable hazardous materials shipping"),
  *   entity_types = {"commerce_product_variation"}
  * )
  */
