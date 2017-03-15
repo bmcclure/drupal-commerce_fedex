@@ -4,7 +4,7 @@ services:
 
   commerce_fedex.commerce_fedex_packer:
     class: Drupal\commerce_fedex\Packer\CommerceFedExPacker
-    arguments: ['@entity_type.manager']
+    arguments: ['@entity_type.manager', '@event_dispatcher']
     tags:
       - { name: commerce_shipping.packer, priority: 0 }
 
