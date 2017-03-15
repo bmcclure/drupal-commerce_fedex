@@ -546,6 +546,12 @@ class FedEx extends ShippingMethodBase {
     return $rateRequest;
   }
 
+  /**
+   *   Determine if we have the minimum information to connect to fedex
+   *
+   *
+   * @return bool
+   */
   protected function isConfigured(){
     $api = $this->configuration['api_information'];
     return !empty($api['api_key']) && !empty($api['api_password']) && !empty($api['account_number']) && !empty($api['meter_number']);
