@@ -471,10 +471,12 @@ class FedEx extends ShippingMethodBase {
    *   The volume.
    */
   protected function getPackageVolume(PackageTypeInterface $packageType) {
+    $unit = $packageType->getHeight()->getUnit();
+
     $number = $packageType
       ->getHeight()
-      ->multiply($packageType->getWidth()->getNumber())
-      ->multiply($packageType->getLength()->getNumber())
+      ->multiply($packageType->getWidth()->convert($unit)->getNumber())
+      ->multiply($packageType->getLength()->convert($unit)->getNumber())
       ->getNumber();
 
     return (float) $number;
@@ -711,9 +713,9 @@ class FedEx extends ShippingMethodBase {
 
         $volume = $dimensions
           ->getHeight()
-          ->multiply($dimensions->getWidth()->getNumber())
-          ->multiply($dimensions->getLength()->getNumber())
           ->convert($unit)
+          ->multiply($dimensions->getWidth()->convert($unit)->getNumber())
+          ->multiply($dimensions->getLength()->convert($unit)->getNumber())
           ->getNumber();
 
         $totalVolume += (float) $volume * $orderItem->getQuantity();
