@@ -549,7 +549,7 @@ class FedEx extends ShippingMethodBase {
     $totalVolume = $this->getShipmentTotalVolume($shipment);
 
     $count = ($totalVolume == 0 || $totalVolume < $packageVolume)
-      ? 0
+      ? 1
       : ceil($totalVolume / $packageVolume);
 
     $packageWeight = $shipment->getWeight()->divide((string) $count);
