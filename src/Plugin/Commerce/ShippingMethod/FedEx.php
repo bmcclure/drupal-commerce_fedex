@@ -149,12 +149,12 @@ class FedEx extends ShippingMethodBase {
         ],
         'options' => [
           'mode' => 'test',
+          'packaging' => 'allinone',
           'rate_request_type' => RateRequestType::VALUE_NONE,
           'ship_to' => 'residential',
           'dropoff' => DropoffType::VALUE_REGULAR_PICKUP,
           'insurance' => false,
           'log' => [],
-
         ]
       ] + parent::defaultConfiguration();
 
@@ -219,6 +219,18 @@ class FedEx extends ShippingMethodBase {
       '#title' => $this->t('Fedex Options'),
       '#description' => $this->t('Additional options for Fedex'),
       '#weight' => 15,
+    ];
+
+    $form['options']['packaging'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Packaging Strategy'),
+      '#description' => $this->t('Select your packaging strategy. "All items in one box" will ignore package type and product dimensions, and assume all items go in one box. "Each item in its own box" will create a box for each line item in the order, "Calculate" Will attempt to figure out how many boxes are needed based on package type volumes and product volumes similar to commerce_fedex 7.x'),
+      '#options' => [
+        'allinone' => $this->t("All items in one box"),
+        'individual' => $this->t("Each item in its own box"),
+        'calculate' => $this->t("Calculate"),
+      ],
+      '#default_value' => $this->configuration['options']['packaging']
     ];
 
     $form['options']['mode'] = [
