@@ -173,7 +173,7 @@ class FedEx extends ShippingMethodBase {
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
-    $defaultConfiguration = [
+    return [
         'api_information' => [
           'api_key' => '',
           'api_password' => '',
@@ -190,12 +190,6 @@ class FedEx extends ShippingMethodBase {
           'log' => [],
         ]
       ] + parent::defaultConfiguration();
-
-    // Allow modules to alter the default configuration.
-    $defaultConfigurationEvent = new DefaultConfigurationEvent($defaultConfiguration);
-    $this->eventDispatcher->dispatch(CommerceFedExEvents::GET_DEFAULT_CONFIGURATION, $defaultConfigurationEvent);
-
-    return $defaultConfigurationEvent->getConfiguration();
   }
 
   /**
@@ -306,11 +300,7 @@ class FedEx extends ShippingMethodBase {
       '#default_value' => $this->configuration['options']['log'],
     ];
 
-    // Allow other modules to alter the settings form.
-    $configurationFormEvent = new ConfigurationFormEvent($form, $form_state, $this->configuration);
-    $this->eventDispatcher->dispatch(CommerceFedExEvents::BUILD_CONFIGURATION_FORM, $configurationFormEvent);
-
-    return $configurationFormEvent->getForm();
+    return $form;
   }
 
   /**
