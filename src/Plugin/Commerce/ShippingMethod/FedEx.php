@@ -230,13 +230,17 @@ class FedEx extends ShippingMethodBase {
       '#default_value' => $this->configuration['api_information']['api_password'],
     ];
     $form['api_information']['account_number'] = [
-      '#type' => 'textfield',
+      '#type' => 'number',
+      '#min' => 0,
+      '#step' => 1,
       '#title' => $this->t('Account number'),
       '#description' => $this->t('Enter your FedEx account number.'),
       '#default_value' => $this->configuration['api_information']['account_number']
     ];
     $form['api_information']['meter_number'] = [
-      '#type' => 'textfield',
+      '#type' => 'number',
+      '#min' => 0,
+      '#step' => 1,
       '#title' => $this->t('Meter number'),
       '#description' => $this->t('Enter your FedEx meter number.'),
       '#default_value' => $this->configuration['api_information']['meter_number'],
@@ -260,7 +264,7 @@ class FedEx extends ShippingMethodBase {
     ];
     $form['options']['packaging'] = [
       '#type' => 'select',
-      '#title' => $this->t('Packaging Strategy'),
+      '#title' => $this->t('Packaging strategy'),
       '#description' => $this->t('Select your packaging strategy. "All items in one box" will ignore package type and product dimensions, and assume all items go in one box. "Each item in its own box" will create a box for each line item in the order, "Calculate" Will attempt to figure out how many boxes are needed based on package type volumes and product volumes similar to commerce_fedex 7.x'),
       '#options' => [
         static::PACKAGE_ALL_IN_ONE => $this->t("All items in one box"),
@@ -279,28 +283,17 @@ class FedEx extends ShippingMethodBase {
       ],
       '#default_value' => $this->configuration['options']['rate_request_type'],
     ];
-
-    // @todo Uncomment or remove
-    /*$form['options']['ship_to'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Ship to destination type'),
-      '#description' => $this->t('Leave this set as residential unless you only ship to commercial addresses.'),
-      '#options' => [
-        'residential' => $this->t('Residential and Commercial'),
-        'commercial' => $this->t('Commercial Only')
-      ],
-      '#efault_value' => $this->configuration['options']['ship_to'],
-    ]; */
-
     $form['options']['dropoff'] = [
       '#type' => 'select',
-      '#title' => $this->t('Default dropoff/pickup location for your FedEx shipments'),
+      '#title' => $this->t('Dropoff Type'),
+      '#description' => $this->t('Default dropoff/pickup location for your FedEx shipments'),
       '#options' => static::enumToList(DropoffType::getValidValues()),
       '#default_value' => $this->configuration['options']['dropoff'],
     ];
     $form['options']['insurance'] = [
       '#type' => 'checkbox',
-      '#title' => $this->t('Include insurance value of shippable line items in FedEx rate requests'),
+      '#title' => $this->t('Include Insurance'),
+      '#description' => $this->t('Include insurance value of shippable line items in FedEx rate requests'),
       '#default_value' => $this->configuration['options']['insurance'],
     ];
     $form['options']['log'] = [
