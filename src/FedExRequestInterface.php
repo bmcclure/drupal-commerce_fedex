@@ -7,7 +7,7 @@ namespace Drupal\commerce_fedex;
  *
  * @package Drupal\commerce_fedex
  */
-interface FedExServiceManagerInterface {
+interface FedExRequestInterface {
 
   /**
    * Gets a new rate request.

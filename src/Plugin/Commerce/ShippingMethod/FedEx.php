@@ -8,7 +8,7 @@ use Drupal\commerce_fedex\Event\CommerceFedExEvents;
 use Drupal\commerce_fedex\Event\ConfigurationFormEvent;
 use Drupal\commerce_fedex\Event\DefaultConfigurationEvent;
 use Drupal\commerce_fedex\Event\RateRequestEvent;
-use Drupal\commerce_fedex\FedExServiceManagerInterface;
+use Drupal\commerce_fedex\FedExRequestInterface;
 use Drupal\commerce_order\Entity\OrderItem;
 use Drupal\commerce_price\Price;
 use Drupal\commerce_shipping\Entity\ShipmentInterface;
@@ -122,11 +122,11 @@ class FedEx extends ShippingMethodBase {
   protected $watchdog;
 
   /**
-   * The Fedex Service Manager.
+   * The FedEx Connection
    *
-   * @var FedExServiceManagerInterface
+   * @var FedExRequestInterface $fedExRequest
    */
-  protected $fedExServiceManager;
+  protected $fedExRequest;
 
   /**
    * Constructs a new ShippingMethodBase object.
@@ -141,15 +141,15 @@ class FedEx extends ShippingMethodBase {
    *   The package type manager.
    * @param \Symfony\Component\EventDispatcher\EventDispatcherInterface $event_dispatcher
    *   The event dispatcher.
-   * @param \Drupal\commerce_fedex\FedExServiceManagerInterface $fedExServiceManager
+   * @param \Drupal\commerce_fedex\FedExRequestInterface $fedExServiceManager
    *   The FedEx Service Manager.
    * @param \Psr\Log\LoggerInterface $watchdog
    *   Commerce Fedex Logger Channel.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, PackageTypeManagerInterface $package_type_manager, EventDispatcherInterface $event_dispatcher, FedExServiceManagerInterface $fedExServiceManager, LoggerInterface $watchdog) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, PackageTypeManagerInterface $package_type_manager, EventDispatcherInterface $event_dispatcher, FedExRequestInterface $fedEx, LoggerInterface $watchdog) {
     $this->eventDispatcher = $event_dispatcher;
     $this->watchdog = $watchdog;
-    $this->fedExServiceManager = $fedExServiceManager;
+    $this->fedExRequest = $fedEx;
 
     parent::__construct($configuration, $plugin_id, $plugin_definition, $package_type_manager);
   }
@@ -350,7 +350,7 @@ class FedEx extends ShippingMethodBase {
    * {@inheritdoc}
    */
   public function calculateRates(ShipmentInterface $shipment) {
-    $rateService = $this->fedExServiceManager->getRateService($this->configuration);
+    $rateService = $this->fedExRequest->getRateService($this->configuration);
     $rateRequest = $this->getRateRequest($rateService, $shipment);
 
     $this->logRequest('Sending FedEx request.', $rateRequest);
@@ -663,7 +663,7 @@ class FedEx extends ShippingMethodBase {
    *   The rate request object.
    */
   protected function getRateRequest(RateService $rateService, ShipmentInterface $shipment) {
-    $rateRequest = $this->fedExServiceManager->getRateRequest($this->configuration);
+    $rateRequest = $this->fedExRequest->getRateRequest($this->configuration);
     $rateRequest->setRequestedShipment($this->getFedExShipment($shipment));
     $rateRequest->setVersion($rateService->version);
 

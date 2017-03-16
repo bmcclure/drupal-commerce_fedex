@@ -17,7 +17,7 @@ use NicholasCreativeMedia\FedExPHP\Structs\WebAuthenticationDetail;
  *
  * @package Drupal\commerce_fedex
  */
-class FedExServiceManager implements FedExServiceManagerInterface {
+class FedExRequest implements FedExRequestInterface {
 
   /**
    * {@inheritdoc}

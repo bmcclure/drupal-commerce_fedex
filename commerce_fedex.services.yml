@@ -1,6 +1,6 @@
 services:
   commerce_fedex.fedex_service:
-    class: Drupal\commerce_fedex\FedExServiceManager
+    class: Drupal\commerce_fedex\FedExRequest
 
   commerce_fedex.commerce_fedex_packer:
     class: Drupal\commerce_fedex\Packer\CommerceFedExPacker
