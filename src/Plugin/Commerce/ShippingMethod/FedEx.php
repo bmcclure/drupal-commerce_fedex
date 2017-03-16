@@ -5,8 +5,6 @@ namespace Drupal\commerce_fedex\Plugin\Commerce\ShippingMethod;
 use Drupal\address\AddressInterface;
 use Drupal\address\Plugin\Field\FieldType\AddressItem;
 use Drupal\commerce_fedex\Event\CommerceFedExEvents;
-use Drupal\commerce_fedex\Event\ConfigurationFormEvent;
-use Drupal\commerce_fedex\Event\DefaultConfigurationEvent;
 use Drupal\commerce_fedex\Event\RateRequestEvent;
 use Drupal\commerce_fedex\FedExRequestInterface;
 use Drupal\commerce_order\Entity\OrderItem;
