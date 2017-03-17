@@ -319,10 +319,6 @@ class FedEx extends ShippingMethodBase {
       // @todo Set each option individually to prevent saving non-standard config values
       $this->configuration['api_information'] = $values['api_information'];
       $this->configuration['options'] = $values['options'];
-
-      // Allow other modules to alter the settings form with access to configuration
-      $configurationFormEvent = new ConfigurationFormEvent($form, $form_state, $this->configuration);
-      $this->eventDispatcher->dispatch(CommerceFedExEvents::SUBMIT_CONFIGURATION_FORM, $configurationFormEvent);
     }
   }
 
