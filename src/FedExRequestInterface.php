@@ -90,7 +90,7 @@ interface FedExRequestInterface {
   /**
    * Return the current WSDL version of a service.
    *
-   * @param $service
+   * @param string $service
    *   The service.
    *
    * @return mixed
@@ -100,40 +100,4 @@ interface FedExRequestInterface {
    */
   public function getVersion($service);
 
-  /**
-   * Gets a new WebAuthentication object.
-   *
-   * @param array $configuration
-   *   The Plugin Configuration.
-   *
-   * @return \NicholasCreativeMedia\FedExPHP\Structs\WebAuthenticationDetail
-   *   The web authentication object.
-   */
-  public function getWebAuthenticationDetail(array $configuration);
-
-  /**
-   * Gets a new ClientDetail object.
-   *
-   * @param array $configuration
-   *   The Plugin Configuration.
-   *
-   * @return \NicholasCreativeMedia\FedExPHP\Structs\ClientDetail
-   *   The client detail.
-   */
-  public function getClientDetail(array $configuration);
-
-  /**
-   * Handle any additional services.
-   *
-   * @param $name
-   *   The Service name.
-   * @param $arguments
-   *   The configuration data.
-   *
-   * @return mixed
-   *   The requested service object.
-   *
-   * @throws \Exception
-   */
-  public function __call($name, $arguments);
 }

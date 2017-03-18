@@ -7,7 +7,7 @@ use Drupal\address\Plugin\Field\FieldType\AddressItem;
 use Drupal\commerce_fedex\Event\CommerceFedExEvents;
 use Drupal\commerce_fedex\Event\RateRequestEvent;
 use Drupal\commerce_fedex\FedExRequestInterface;
-use Drupal\commerce_order\Entity\OrderItem;
+use Drupal\commerce_fedex\FedExPluginManager;
 use Drupal\commerce_price\Price;
 use Drupal\commerce_shipping\Entity\ShipmentInterface;
 use Drupal\commerce_shipping\PackageTypeManagerInterface;
@@ -15,7 +15,8 @@ use Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageTypeInterface;
 use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodBase;
 use Drupal\commerce_shipping\ShipmentItem;
 use Drupal\commerce_shipping\ShippingRate;
-use Drupal\physical\Plugin\Field\FieldType\DimensionsItem;
+use Drupal\Core\Form\SubformState;
+use Drupal\Core\Plugin\DefaultLazyPluginCollection;
 use Drupal\physical\Weight as PhysicalWeight;
 use Drupal\physical\WeightUnit as PhysicalWeightUnits;
 use Drupal\physical\LengthUnit as PhysicalLengthUnits;
@@ -81,48 +82,62 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
 class FedEx extends ShippingMethodBase {
 
   /**
-   * Constant for Domestic Shipping
+   * Constant for Domestic Shipping.
    */
   const SHIPPING_TYPE_DOMESTIC = 'domestic';
 
   /**
-   *  Constant for International Shipping
+   * Constant for International Shipping.
    */
   const SHIPPING_TYPE_INTERNATIONAL = 'intl';
 
   /**
-   * Package All items in one box, ignoring dimensions
+   * Package All items in one box, ignoring dimensions.
    */
   const PACKAGE_ALL_IN_ONE = 'allinone';
 
   /**
-   * Package each line item in its own box, ignoring dimensions
+   * Package each line item in its own box, ignoring dimensions.
    */
   const PACKAGE_INDIVIDUAL = 'individual';
 
   /**
-   * Calculate volume to determine how many boxes are needed
+   * Calculate volume to determine how many boxes are needed.
    */
   const PACKAGE_CALCULATE = 'calculate';
 
   /**
    * The event dispatcher.
    *
-   * @var EventDispatcherInterface
+   * @var \Symfony\Component\EventDispatcher\EventDispatcherInterface
    */
   protected $eventDispatcher;
 
   /**
+   * The FedEx Service Plugin Manager.
+   *
+   * @var \Drupal\commerce_fedex\FedExPluginManager
+   */
+  protected $fedExServiceManager;
+
+  /**
+   * The Service Plugins.
+   *
+   * @var \Drupal\Core\Plugin\DefaultLazyPluginCollection
+   */
+  protected $plugins;
+
+  /**
    * Commerce Fedex Logger Channel.
    *
-   * @var LoggerInterface
+   * @var \Psr\Log\LoggerInterface
    */
   protected $watchdog;
 
   /**
-   * The FedEx Connection
+   * The FedEx Connection.
    *
-   * @var FedExRequestInterface $fedExRequest
+   * @var \Drupal\commerce_fedex\FedExRequestInterface
    */
   protected $fedExRequest;
 
@@ -137,19 +152,26 @@ class FedEx extends ShippingMethodBase {
    *   The plugin implementation definition.
    * @param \Drupal\commerce_shipping\PackageTypeManagerInterface $package_type_manager
    *   The package type manager.
+   * @param \Drupal\commerce_fedex\FedExPluginManager $fedex_service_manager
+   *   The FedEx Plugin Manager.
    * @param \Symfony\Component\EventDispatcher\EventDispatcherInterface $event_dispatcher
-   *   The event dispatcher.
-   * @param \Drupal\commerce_fedex\FedExRequestInterface $fedExServiceManager
-   *   The FedEx Service Manager.
+   *   The Event Dispatcher.
+   * @param \Drupal\commerce_fedex\FedExRequestInterface $fedex_request
+   *   The Fedex Request Service.
    * @param \Psr\Log\LoggerInterface $watchdog
    *   Commerce Fedex Logger Channel.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, PackageTypeManagerInterface $package_type_manager, EventDispatcherInterface $event_dispatcher, FedExRequestInterface $fedEx, LoggerInterface $watchdog) {
-    $this->eventDispatcher = $event_dispatcher;
-    $this->watchdog = $watchdog;
-    $this->fedExRequest = $fedEx;
-
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, PackageTypeManagerInterface $package_type_manager, FedExPluginManager $fedex_service_manager, EventDispatcherInterface $event_dispatcher, FedExRequestInterface $fedex_request, LoggerInterface $watchdog) {
     parent::__construct($configuration, $plugin_id, $plugin_definition, $package_type_manager);
+    $this->watchdog = $watchdog;
+    $this->fedExRequest = $fedex_request;
+    $this->fedExServiceManager = $fedex_service_manager;
+    $this->eventDispatcher = $event_dispatcher;
+    if (empty($this->configuration['plugins'])) {
+      $this->configuration['plugins'] = [];
+    }
+
+    $this->updatePlugins()->getPlugins();
   }
 
   /**
@@ -161,9 +183,11 @@ class FedEx extends ShippingMethodBase {
       $plugin_id,
       $plugin_definition,
       $container->get('plugin.manager.commerce_package_type'),
+      $container->get('plugin.manager.commerce_fedex_service'),
       $container->get('event_dispatcher'),
-      $container->get('commerce_fedex.fedex_service'),
+      $container->get('commerce_fedex.fedex_request'),
       $container->get('logger.channel.commerce_fedex')
+
     );
   }
 
@@ -171,29 +195,36 @@ class FedEx extends ShippingMethodBase {
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
+
     return [
-        'api_information' => [
-          'api_key' => '',
-          'api_password' => '',
-          'account_number' => '',
-          'meter_number' => '',
-          'mode' => 'test',
-        ],
-        'options' => [
-          'packaging' => static::PACKAGE_ALL_IN_ONE,
-          'rate_request_type' => RateRequestType::VALUE_NONE,
-          'ship_to' => 'residential',
-          'dropoff' => DropoffType::VALUE_REGULAR_PICKUP,
-          'insurance' => false,
-          'log' => [],
-        ]
-      ] + parent::defaultConfiguration();
+      'api_information' => [
+        'api_key' => '',
+        'api_password' => '',
+        'account_number' => '',
+        'meter_number' => '',
+        'mode' => 'test',
+      ],
+      'options' => [
+        'packaging' => static::PACKAGE_ALL_IN_ONE,
+        'rate_request_type' => RateRequestType::VALUE_NONE,
+        'dropoff' => DropoffType::VALUE_REGULAR_PICKUP,
+        'insurance' => FALSE,
+        'log' => [],
+      ],
+      'plugins' => [],
+    ] + parent::defaultConfiguration();
   }
 
   /**
    * {@inheritdoc}
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
+
+    /* @todo Remove hack when commerce issue  #2859423 is resolved */
+    if ($this->configuration == $this->defaultConfiguration()) {
+      $this->fixConfiguration($form_state);
+    }
+
     $form = parent::buildConfigurationForm($form, $form_state);
 
     // Select all services by default.
@@ -206,7 +237,7 @@ class FedEx extends ShippingMethodBase {
       '#type' => 'details',
       '#title' => $this->t('API information'),
       '#description' => $this->isConfigured() ? $this->t('Update your FedEx API information.') : $this->t('Fill in your FedEx API information.'),
-      '#weight' => $this->isConfigured()?10:-1,
+      '#weight' => $this->isConfigured() ? 10 : -10,
       '#open' => !$this->isConfigured(),
     ];
     $form['api_information']['api_key'] = [
@@ -227,7 +258,7 @@ class FedEx extends ShippingMethodBase {
       '#step' => 1,
       '#title' => $this->t('Account number'),
       '#description' => $this->t('Enter your FedEx account number.'),
-      '#default_value' => $this->configuration['api_information']['account_number']
+      '#default_value' => $this->configuration['api_information']['account_number'],
     ];
     $form['api_information']['meter_number'] = [
       '#type' => 'number',
@@ -247,12 +278,10 @@ class FedEx extends ShippingMethodBase {
       ],
       '#default_value' => $this->configuration['api_information']['mode'],
     ];
-
     $form['options'] = [
       '#type' => 'details',
       '#title' => $this->t('Fedex Options'),
       '#description' => $this->t('Additional options for Fedex'),
-      '#weight' => 15,
     ];
     $form['options']['packaging'] = [
       '#type' => 'select',
@@ -263,7 +292,7 @@ class FedEx extends ShippingMethodBase {
         static::PACKAGE_INDIVIDUAL => $this->t("Each item in its own box"),
         static::PACKAGE_CALCULATE => $this->t("Calculate"),
       ],
-      '#default_value' => $this->configuration['options']['packaging']
+      '#default_value' => $this->configuration['options']['packaging'],
     ];
     $form['options']['rate_request_type'] = [
       '#type' => 'select',
@@ -271,7 +300,7 @@ class FedEx extends ShippingMethodBase {
       '#description' => $this->t('Select the pricing option to use when requesting a rate quote. Note that discounted rates are only available when sending production requests.'),
       '#options' => [
         RateRequestType::VALUE_NONE => $this->t('Standard pricing (LIST)'),
-        RateRequestType::VALUE_PREFERRED => $this->t('This FedEx account\'s discounted pricing (ACCOUNT)'),
+        RateRequestType::VALUE_PREFERRED => $this->t("This FedEx account's discounted pricing (ACCOUNT)"),
       ],
       '#default_value' => $this->configuration['options']['rate_request_type'],
     ];
@@ -298,30 +327,81 @@ class FedEx extends ShippingMethodBase {
       '#default_value' => $this->configuration['options']['log'],
     ];
 
+    foreach ($this->fedExServiceManager->getDefinitions() as $plugin_id => $definition) {
+      /** @var \Drupal\commerce_fedex\Plugin\Commerce\FedEx\FedExPluginInterface $plugin */
+      $plugin = $this->plugins->get($plugin_id);
+      $subform = [
+        '#type' => 'details',
+        '#title' => $definition['optionsLabel']->render(),
+      ];
+      $form[$plugin_id] = $plugin->buildConfigurationForm($subform, $form_state);
+    }
     return $form;
   }
 
   /**
    * {@inheritdoc}
    */
-  public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
-    parent::submitConfigurationForm($form, $form_state);
+  public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
+    /* @todo Remove hack when commerce issue  #2859423 is resolved */
+    $this->fixConfiguration($form_state);
 
-    if (!$form_state->getErrors()) {
-      $values = $form_state->getValue($form['#parents']);
+    parent::validateConfigurationForm($form, $form_state);
 
-      // @todo Re-implement once commerce creates plugins with existing configuration
-      /*if (empty($values['api_information']['api_password'])) {
-        $values['api_information']['api_password'] = $values['api_information']['existing_api_password'];
-      }
-      unset($values['api_information']['existing_api_password']);*/
-
-      // @todo Set each option individually to prevent saving non-standard config values
-      $this->configuration['api_information'] = $values['api_information'];
-      $this->configuration['options'] = $values['options'];
+    foreach ($this->fedExServiceManager->getDefinitions() as $plugin_id => $definition) {
+      /** @var \Drupal\commerce_fedex\Plugin\Commerce\FedEx\FedExPluginInterface $plugin */
+      $plugin = $this->plugins->get($plugin_id);
+      $plugin->validateConfigurationForm($form[$plugin_id], SubformState::createForSubform($form[$plugin_id], $form_state->getCompleteForm(), $form_state));
     }
   }
 
+  /**
+   * {@inheritdoc}
+   */
+  public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
+    /* @todo Remove hack when commerce issue  #2859423 is resolved */
+    $this->fixConfiguration($form_state);
+
+    if (!$form_state->getErrors()) {
+
+      $values = $form_state->getValue($form['#parents']);
+
+      $this->configuration['api_information']['api_key'] = $values['api_information']['api_key'];
+      if (!empty($values['api_information']['api_password'])) {
+        $this->configuration['api_information']['api_password'] = $values['api_information']['api_password'];
+      }
+      $this->configuration['api_information']['account_number'] = $values['api_information']['account_number'];
+      $this->configuration['api_information']['meter_number'] = $values['api_information']['meter_number'];
+      $this->configuration['api_information']['mode'] = $values['api_information']['mode'];
+      $this->configuration['options']['packaging'] = $values['options']['packaging'];
+      $this->configuration['options']['rate_request_type'] = $values['options']['rate_request_type'];
+      $this->configuration['options']['dropoff'] = $values['options']['dropoff'];
+      $this->configuration['options']['insurance'] = $values['options']['insurance'];
+      $this->configuration['options']['log'] = $values['options']['log'];
+
+      unset($this->configuration['plugins']);
+      foreach ($this->fedExServiceManager->getDefinitions() as $plugin_id => $definition) {
+        /** @var \Drupal\commerce_fedex\Plugin\Commerce\FedEx\FedExPluginInterface $plugin */
+        $plugin = $this->plugins->get($plugin_id);
+        $plugin->submitConfigurationForm($form[$plugin_id], SubformState::createForSubform($form[$plugin_id], $form_state->getCompleteForm(), $form_state));
+        $this->configuration['plugins'][$plugin_id]['configuration'] = $plugin->getConfiguration();
+      }
+    }
+    parent::submitConfigurationForm($form, $form_state);
+  }
+
+  /**
+   * Logs Requests and responses from FedEx.
+   *
+   * @param string $message
+   *   The message to log.
+   * @param mixed $rateRequest
+   *   The FedEx Request or response object.
+   * @param string $level
+   *   The Log level.
+   * @param bool $skipConfigCheck
+   *   Whether to skip the check to log or not.
+   */
   protected function logRequest($message, $rateRequest, $level = LogLevel::INFO, $skipConfigCheck = FALSE) {
     if ($skipConfigCheck || $this->configuration['options']['log']['request']) {
       $this->watchdog->log($level, "$message <br>@rate_request", [
@@ -334,6 +414,11 @@ class FedEx extends ShippingMethodBase {
    * {@inheritdoc}
    */
   public function calculateRates(ShipmentInterface $shipment) {
+
+    if ($shipment->getShippingProfile()->address->isEmpty()) {
+      return [];
+    }
+
     $rateService = $this->fedExRequest->getRateService($this->configuration);
     $rateRequest = $this->getRateRequest($rateService, $shipment);
 
@@ -343,7 +428,8 @@ class FedEx extends ShippingMethodBase {
 
     if (!$response) {
       $this->logRequest('FedEx sent no response back.', $rateRequest, LogLevel::NOTICE, TRUE);
-    } else {
+    }
+    else {
       $this->logRequest('FedEx response received.', $rateRequest);
     }
 
@@ -369,6 +455,39 @@ class FedEx extends ShippingMethodBase {
   }
 
   /**
+   * Updates the configuration array with currently discovered plugins.
+   *
+   * @return $this
+   */
+  public function updatePlugins() {
+    $definitions = $this->fedExServiceManager->getDefinitions();
+    $this->configuration['plugins'] = array_intersect_key($this->configuration['plugins'], $definitions);
+    foreach ($definitions as $plugin_id => $definition) {
+      if (empty($this->configuration['plugins'][$plugin_id])) {
+        $this->configuration['plugins'][$plugin_id] = [
+          'plugin_id' => $plugin_id,
+          'configuration' => ['id' => $plugin_id],
+        ];
+      }
+    }
+    return $this;
+  }
+
+  /**
+   * Loads the Plugin Collection.
+   *
+   * @return $this
+   */
+  public function getPlugins() {
+    $plugins = [];
+    foreach ($this->configuration['plugins'] as $plugin_id => $plugin_data) {
+      $plugins[$plugin_id] = $plugin_data['configuration'];
+    }
+    $this->plugins = new DefaultLazyPluginCollection($this->fedExServiceManager, $plugins);
+    return $this;
+  }
+
+  /**
    * Convert a FedEx API enum array to an options list.
    *
    * @param array $enums
@@ -377,7 +496,7 @@ class FedEx extends ShippingMethodBase {
    * @return array
    *   The options list.
    */
-  protected static function enumToList(array $enums){
+  protected static function enumToList(array $enums) {
     return array_combine($enums, array_map(function ($d) {
       return ucwords(str_replace('_', ' ', $d));
     }, $enums));
@@ -389,7 +508,7 @@ class FedEx extends ShippingMethodBase {
    * @param \Drupal\address\AddressInterface $address
    *   The Drupal address object.
    *
-   * @return Party
+   * @return \NicholasCreativeMedia\FedExPHP\Structs\Party
    *   The address for FedEx.
    */
   protected function getAddressForFedEx(AddressInterface $address) {
@@ -415,13 +534,13 @@ class FedEx extends ShippingMethodBase {
    * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
    *   The shipment.
    *
-   * @return RequestedPackageLineItem[]
+   * @return \NicholasCreativeMedia\FedExPHP\Structs\RequestedPackageLineItem[]
    *   The requested package line items.
    */
   protected function getRequestedPackageLineItems(ShipmentInterface $shipment) {
     $requestedPackageLineItems = [];
 
-    switch ($this->configuration['options']['packaging']){
+    switch ($this->configuration['options']['packaging']) {
       case static::PACKAGE_ALL_IN_ONE:
         $requestedPackageLineItems = $this->getRequestedPackageLineItemsAllInOne($shipment);
         break;
@@ -485,7 +604,7 @@ class FedEx extends ShippingMethodBase {
    * @return array
    *   The package line items.
    */
-  protected function getRequestedPackageLineItemsAllInOne(ShipmentInterface $shipment){
+  protected function getRequestedPackageLineItemsAllInOne(ShipmentInterface $shipment) {
     $requestedPackageLineItem = new RequestedPackageLineItem();
 
     $shipmentTitle = $shipment->getTitle();
@@ -610,7 +729,7 @@ class FedEx extends ShippingMethodBase {
       ? $lineItems[0]->getGroupPackageCount()
       : count($lineItems);
 
-    /** @var AddressInterface $recipientAddress */
+    /** @var \Drupal\address\AddressInterface $recipientAddress */
     $recipientAddress = $shipment->getShippingProfile()->get('address')->first();
     $shipperAddress = $shipment->getOrder()->getStore()->getAddress();
 
@@ -628,7 +747,7 @@ class FedEx extends ShippingMethodBase {
       ->setRateRequestTypes();
 
     if ($this->configuration['options']['insurance']) {
-      $fedExShipment->setTotalInsuredValue( new Money(
+      $fedExShipment->setTotalInsuredValue(new Money(
         $shipment->getTotalDeclaredValue()->getCurrencyCode(),
         $shipment->getTotalDeclaredValue()->getNumber()
       ));
@@ -640,6 +759,8 @@ class FedEx extends ShippingMethodBase {
   /**
    * Gets a rate request object for FedEx.
    *
+   * @param \NicholasCreativeMedia\FedExPHP\Services\RateService $rateService
+   *   The FedEx Rate Service.
    * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
    *   The shipment.
    *
@@ -659,8 +780,7 @@ class FedEx extends ShippingMethodBase {
   }
 
   /**
-   * Gets the shipment items total volume in the same units as the shipment
-   * package type.
+   * Gets the shipment's total volume in the same units as the package type.
    *
    * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
    *   The shipment.
@@ -672,7 +792,7 @@ class FedEx extends ShippingMethodBase {
     $orderItemStorage = \Drupal::entityTypeManager()->getStorage('commerce_order_item');
     $orderItemIds = [];
 
-    foreach ($shipment->getItems() as $shipmentItem){
+    foreach ($shipment->getItems() as $shipmentItem) {
       $orderItemIds[] = $shipmentItem->getOrderItemId();
     }
 
@@ -680,12 +800,12 @@ class FedEx extends ShippingMethodBase {
     $unit = $shipment->getPackageType()->getHeight()->getUnit();
 
     $totalVolume = 0;
-    foreach ($orderItems as $orderItem){
-      /** @var OrderItem $orderItem */
+    foreach ($orderItems as $orderItem) {
+      /** @var \Drupal\commerce_order\Entity\OrderItem $orderItem */
       $purchased_entity = $orderItem->getPurchasedEntity();
 
       if ($purchased_entity->hasField('dimensions') && !$purchased_entity->get('dimensions')->isEmpty()) {
-        /** @var DimensionsItem $dimensions */
+        /** @var \Drupal\physical\Plugin\Field\FieldType\DimensionsItem $dimensions */
         $dimensions = $purchased_entity->get('dimensions')->first();
 
         $volume = $dimensions
@@ -835,7 +955,7 @@ class FedEx extends ShippingMethodBase {
    */
   public static function isDomestic(ShipmentInterface $shipment) {
 
-    /** @var  AddressItem $shippingAddress */
+    /* @var  AddressItem $shippingAddress */
     $shippingAddress = $shipment->getShippingProfile()->get('address')->first();
 
     $domestic = ($shippingAddress instanceof AddressItem)
@@ -849,12 +969,32 @@ class FedEx extends ShippingMethodBase {
    * Gets the shipping type of the shipment.
    *
    * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
+   *   The Shipment.
+   *
    * @return string
+   *   A constant representing the shipment type
    */
   public static function shippingType(ShipmentInterface $shipment) {
     return static::isDomestic($shipment)
       ? FedEx::SHIPPING_TYPE_DOMESTIC
       : FedEx::SHIPPING_TYPE_INTERNATIONAL;
+  }
+
+  /**
+   * Fix for commerce issue #2859423.
+   *
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The Form State (needed to get original configuration)
+   */
+  private function fixConfiguration(FormStateInterface $form_state) {
+    /* @todo Remove hack when commerce issue  #2859423 is resolved */
+    $configuration = $this->configuration;
+    unset($configuration['plugins']);
+    /** @var \Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodInterface $plugin */
+    $plugin = $form_state->getFormObject()->getEntity()->getPlugin();
+    if ($plugin->getPluginId() == $this->pluginId) {
+      $this->setConfiguration($plugin->getConfiguration());
+    }
   }
 
 }

@@ -1,13 +1,17 @@
 services:
-  commerce_fedex.fedex_service:
-    class: Drupal\commerce_fedex\FedExRequest
-
   commerce_fedex.commerce_fedex_packer:
     class: Drupal\commerce_fedex\Packer\CommerceFedExPacker
     arguments: ['@entity_type.manager', '@event_dispatcher']
     tags:
       - { name: commerce_shipping.packer, priority: 0 }
 
+  commerce_fedex.fedex_request:
+    class: Drupal\commerce_fedex\FedExRequest
+
   logger.channel.commerce_fedex:
     parent: logger.channel_base
     arguments: ['commerce_fedex']
+
+  plugin.manager.commerce_fedex_service:
+    class: Drupal\commerce_fedex\FedExPluginManager
+    parent: default_plugin_manager

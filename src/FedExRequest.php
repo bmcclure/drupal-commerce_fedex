@@ -24,7 +24,7 @@ class FedExRequest implements FedExRequestInterface {
    */
   public function __call($name, $arguments) {
     if (strpos($name, "get") !== 0) {
-      throw New \Exception("Method $name not found");
+      throw new \Exception("Method $name not found");
     }
 
     $name = substr($name, 3);
@@ -47,7 +47,7 @@ class FedExRequest implements FedExRequestInterface {
 
     if (strpos($name, "Request") !== FALSE) {
       if (!class_exists("\\NicholasCreativeMedia\\FedExPHP\\Services\\$name")) {
-        throw New \Exception("Request Type $name not found");
+        throw new \Exception("Request Type $name not found");
       }
 
       return new $name(
@@ -56,7 +56,7 @@ class FedExRequest implements FedExRequestInterface {
       );
     }
 
-    throw New \Exception("Method $name not found");
+    throw new \Exception("Method $name not found");
   }
 
   /**
@@ -155,7 +155,7 @@ class FedExRequest implements FedExRequestInterface {
   /**
    * {@inheritdoc}
    */
-  public function getVersion($service){
+  public function getVersion($service) {
     $class = '\NicholasCreativeMedia\FedExPHP\Services\\' . $service;
 
     if (!class_exists($class)) {
