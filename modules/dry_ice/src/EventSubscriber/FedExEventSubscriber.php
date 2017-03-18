@@ -3,11 +3,8 @@
 namespace Drupal\commerce_fedex_dry_ice\EventSubscriber;
 
 use Drupal\commerce_fedex\Event\CommerceFedExEvents;
-use Drupal\commerce_fedex\Event\ConfigurationFormEvent;
-use Drupal\commerce_fedex\Event\DefaultConfigurationEvent;
 use Drupal\commerce_fedex\Event\RateRequestEvent;
 use Drupal\commerce_shipping\PackageTypeManagerInterface;
-use Drupal\physical\WeightUnit;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
 
@@ -22,7 +19,7 @@ class FedExEventSubscriber implements EventSubscriberInterface {
   /**
    * The package type manager.
    *
-   * @var PackageTypeManagerInterface
+   * @var \Drupal\commerce_shipping\PackageTypeManagerInterface
    */
   protected $packageTypeManager;
 
@@ -50,9 +47,12 @@ class FedExEventSubscriber implements EventSubscriberInterface {
   }
 
   /**
-   * @inheritdoc
+   * Function getSubscribedEvents.
+   *
+   * @return array
+   *   The subscribed events
    */
-  static function getSubscribedEvents() {
+  public static function getSubscribedEvents() {
     $events = [];
     $events[CommerceFedExEvents::BEFORE_RATE_REQUEST][] = ['onBeforeRateRequest'];
 

@@ -1,0 +1,13 @@
+commerce_fedex.fedex_plugin.plugin.dry_ice:
+  type: commerce_fedex_service
+  label: 'Commerce Fedex Dry Ice Service'
+  mapping:
+    domestic:
+      type: mapping
+      label: 'Domestic'
+      mapping:
+        package_type:
+          type: string
+          label: 'Package Type'
+        weight:
+          type: mapping
