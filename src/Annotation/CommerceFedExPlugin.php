@@ -40,4 +40,12 @@ class CommerceFedExPlugin extends Plugin {
    */
   public $options_label;
 
+  /**
+   * The options detail box description.
+   *
+   * @var \Drupal\Core\Annotation\Translation
+   *
+   * @ingroup plugin_translatable
+   */
+  public $options_description;
 }
