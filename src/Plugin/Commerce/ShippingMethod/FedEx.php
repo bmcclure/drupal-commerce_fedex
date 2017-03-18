@@ -395,17 +395,17 @@ class FedEx extends ShippingMethodBase {
    *
    * @param string $message
    *   The message to log.
-   * @param mixed $rateRequest
+   * @param mixed $data
    *   The FedEx Request or response object.
    * @param string $level
    *   The Log level.
-   * @param bool $skipConfigCheck
+   * @param bool $skip_config_check
    *   Whether to skip the check to log or not.
    */
-  protected function logRequest($message, $rateRequest, $level = LogLevel::INFO, $skipConfigCheck = FALSE) {
-    if ($skipConfigCheck || $this->configuration['options']['log']['request']) {
+  protected function logRequest($message, $data, $level = LogLevel::INFO, $skip_config_check = FALSE) {
+    if ($skip_config_check || $this->configuration['options']['log']['request']) {
       $this->watchdog->log($level, "$message <br>@rate_request", [
-        '@rate_request' => var_export($rateRequest, TRUE),
+        '@rate_request' => var_export($data, TRUE),
       ]);
     }
   }
@@ -419,32 +419,32 @@ class FedEx extends ShippingMethodBase {
       return [];
     }
 
-    $rateService = $this->fedExRequest->getRateService($this->configuration);
-    $rateRequest = $this->getRateRequest($rateService, $shipment);
+    $rate_service = $this->fedExRequest->getRateService($this->configuration);
+    $rate_request = $this->getRateRequest($rate_service, $shipment);
 
-    $this->logRequest('Sending FedEx request.', $rateRequest);
+    $this->logRequest('Sending FedEx request.', $rate_request);
 
-    $response = $rateService->getRates($rateRequest);
+    $response = $rate_service->getRates($rate_request);
 
     if (!$response) {
-      $this->logRequest('FedEx sent no response back.', $rateRequest, LogLevel::NOTICE, TRUE);
+      $this->logRequest('FedEx sent no response back.', $rate_request, LogLevel::NOTICE, TRUE);
     }
     else {
-      $this->logRequest('FedEx response received.', $rateRequest);
+      $this->logRequest('FedEx response received.', $rate_request);
     }
 
     $rates = [];
     if ($response->getHighestSeverity() == 'SUCCESS') {
-      foreach ($response->getRateReplyDetails() as $rateDetails) {
-        if (in_array($rateDetails->getServiceType(), array_keys($this->getServices()))) {
-          $cost = $rateDetails
+      foreach ($response->getRateReplyDetails() as $rate_details) {
+        if (in_array($rate_details->getServiceType(), array_keys($this->getServices()))) {
+          $cost = $rate_details
             ->getRatedShipmentDetails()[0]
             ->getShipmentRateDetail()
             ->getTotalNetChargeWithDutiesAndTaxes();
 
           $rates[] = new ShippingRate(
-            $rateDetails->getServiceType(),
-            $this->services[$rateDetails->getServiceType()],
+            $rate_details->getServiceType(),
+            $this->services[$rate_details->getServiceType()],
             new Price($cost->getAmount(), $cost->getCurrency())
           );
         }
@@ -538,41 +538,41 @@ class FedEx extends ShippingMethodBase {
    *   The requested package line items.
    */
   protected function getRequestedPackageLineItems(ShipmentInterface $shipment) {
-    $requestedPackageLineItems = [];
+    $requested_package_line_items = [];
 
     switch ($this->configuration['options']['packaging']) {
       case static::PACKAGE_ALL_IN_ONE:
-        $requestedPackageLineItems = $this->getRequestedPackageLineItemsAllInOne($shipment);
+        $requested_package_line_items = $this->getRequestedPackageLineItemsAllInOne($shipment);
         break;
 
       case static::PACKAGE_INDIVIDUAL:
-        $requestedPackageLineItems = $this->getRequestedPackageLineItemsIndividual($shipment);
+        $requested_package_line_items = $this->getRequestedPackageLineItemsIndividual($shipment);
         break;
 
       case static::PACKAGE_CALCULATE:
-        $requestedPackageLineItems = $this->getRequestedPackageLineItemsCalculate($shipment);
+        $requested_package_line_items = $this->getRequestedPackageLineItemsCalculate($shipment);
         break;
     }
 
-    return $requestedPackageLineItems;
+    return $requested_package_line_items;
   }
 
   /**
    * Gets the volume of the provided package type.
    *
-   * @param \Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageTypeInterface $packageType
+   * @param \Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageTypeInterface $package_type
    *   The package type.
    *
    * @return float
    *   The volume.
    */
-  protected function getPackageVolume(PackageTypeInterface $packageType) {
-    $unit = $packageType->getHeight()->getUnit();
+  protected function getPackageVolume(PackageTypeInterface $package_type) {
+    $unit = $package_type->getHeight()->getUnit();
 
-    $number = $packageType
+    $number = $package_type
       ->getHeight()
-      ->multiply($packageType->getWidth()->convert($unit)->getNumber())
-      ->multiply($packageType->getLength()->convert($unit)->getNumber())
+      ->multiply($package_type->getWidth()->convert($unit)->getNumber())
+      ->multiply($package_type->getLength()->convert($unit)->getNumber())
       ->getNumber();
 
     return (float) $number;
@@ -581,14 +581,14 @@ class FedEx extends ShippingMethodBase {
   /**
    * Gets a cleaned title string for use in sending to FedEx.
    *
-   * @param \Drupal\commerce_shipping\ShipmentItem $shipmentItem
+   * @param \Drupal\commerce_shipping\ShipmentItem $shipment_item
    *   The shipment item.
    *
    * @return string
    *   The cleaned title.
    */
-  protected function getCleanTitle(ShipmentItem $shipmentItem) {
-    $title = $shipmentItem->getTitle();
+  protected function getCleanTitle(ShipmentItem $shipment_item) {
+    $title = $shipment_item->getTitle();
     $title = preg_replace('/[^A-Za-z0-9 ]/', ' ', $title);
     $title = preg_replace('/ +/', ' ', $title);
 
@@ -605,30 +605,30 @@ class FedEx extends ShippingMethodBase {
    *   The package line items.
    */
   protected function getRequestedPackageLineItemsAllInOne(ShipmentInterface $shipment) {
-    $requestedPackageLineItem = new RequestedPackageLineItem();
+    $requested_package_line_item = new RequestedPackageLineItem();
 
-    $shipmentTitle = $shipment->getTitle();
-    if (!is_string($shipmentTitle)) {
-      $shipmentTitle = $shipmentTitle->render();
+    $shipment_title = $shipment->getTitle();
+    if (!is_string($shipment_title)) {
+      $shipment_title = $shipment_title->render();
     }
 
-    $requestedPackageLineItem
+    $requested_package_line_item
       ->setSequenceNumber(1)
       ->setGroupPackageCount(1)
       ->setWeight($this->physicalWeightToFedex($shipment->getWeight()))
       ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
       ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
-      ->setItemDescription($shipmentTitle)
+      ->setItemDescription($shipment_title)
       ->setSpecialServicesRequested(new PackageSpecialServicesRequested());
 
     if ($this->configuration['options']['insurance']) {
-      $requestedPackageLineItem->setInsuredValue(new Money(
+      $requested_package_line_item->setInsuredValue(new Money(
         $shipment->getTotalDeclaredValue()->getCurrencyCode(),
         $shipment->getTotalDeclaredValue()->getNumber()
       ));
     }
 
-    return [$requestedPackageLineItem];
+    return [$requested_package_line_item];
   }
 
   /**
@@ -641,39 +641,39 @@ class FedEx extends ShippingMethodBase {
    *   The package line items.
    */
   protected function getRequestedPackageLineItemsCalculate(ShipmentInterface $shipment) {
-    $packageVolume = $this->getPackageVolume($shipment->getPackageType());
-    $totalVolume = $this->getShipmentTotalVolume($shipment);
+    $package_volume = $this->getPackageVolume($shipment->getPackageType());
+    $total_volume = $this->getShipmentTotalVolume($shipment);
 
-    $count = ($totalVolume == 0 || $totalVolume < $packageVolume)
+    $count = ($total_volume == 0 || $total_volume < $package_volume)
       ? 1
-      : ceil($totalVolume / $packageVolume);
+      : ceil($total_volume / $package_volume);
 
-    $packageWeight = $shipment->getWeight()->divide((string) $count);
+    $package_weight = $shipment->getWeight()->divide((string) $count);
 
-    $shipmentTitle = $shipment->getTitle();
-    if (!is_string($shipmentTitle)) {
-      $shipmentTitle = $shipmentTitle->render();
+    $shipment_title = $shipment->getTitle();
+    if (!is_string($shipment_title)) {
+      $shipment_title = $shipment_title->render();
     }
 
-    $requestedPackageLineItem = new RequestedPackageLineItem();
+    $requested_package_line_item = new RequestedPackageLineItem();
 
-    $requestedPackageLineItem
+    $requested_package_line_item
       ->setGroupNumber(1)
       ->setGroupPackageCount($count)
-      ->setWeight($this->physicalWeightToFedex($packageWeight))
+      ->setWeight($this->physicalWeightToFedex($package_weight))
       ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
       ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
-      ->setItemDescription($shipmentTitle)
+      ->setItemDescription($shipment_title)
       ->setSpecialServicesRequested(new PackageSpecialServicesRequested());
 
     if ($this->configuration['options']['insurance']) {
-      $requestedPackageLineItem->setInsuredValue(new Money(
+      $requested_package_line_item->setInsuredValue(new Money(
         $shipment->getTotalDeclaredValue()->getCurrencyCode(),
         $shipment->getTotalDeclaredValue()->getNumber()
       ));
     }
 
-    return [$requestedPackageLineItem];
+    return [$requested_package_line_item];
   }
 
   /**
@@ -686,31 +686,31 @@ class FedEx extends ShippingMethodBase {
    *   The package line items.
    */
   protected function getRequestedPackageLineItemsIndividual(ShipmentInterface $shipment) {
-    $requestedPackageLineItems = [];
+    $requested_package_line_items = [];
 
-    foreach ($shipment->getItems() as $delta => $shipmentItem) {
-      $requestedPackageLineItem = new RequestedPackageLineItem();
+    foreach ($shipment->getItems() as $delta => $shipment_item) {
+      $requested_package_line_item = new RequestedPackageLineItem();
 
-      $requestedPackageLineItem
+      $requested_package_line_item
         ->setSequenceNumber($delta + 1)
         ->setGroupPackageCount(1)
-        ->setWeight($this->physicalWeightToFedex($shipmentItem->getWeight()))
+        ->setWeight($this->physicalWeightToFedex($shipment_item->getWeight()))
         ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
         ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
-        ->setItemDescription($this->getCleanTitle($shipmentItem))
+        ->setItemDescription($this->getCleanTitle($shipment_item))
         ->setSpecialServicesRequested(new PackageSpecialServicesRequested());
 
       if ($this->configuration['options']['insurance']) {
-        $requestedPackageLineItem->setInsuredValue(new Money(
-          $shipmentItem->getDeclaredValue()->getCurrencyCode(),
-          $shipmentItem->getDeclaredValue()->getNumber()
+        $requested_package_line_item->setInsuredValue(new Money(
+          $shipment_item->getDeclaredValue()->getCurrencyCode(),
+          $shipment_item->getDeclaredValue()->getNumber()
         ));
       }
 
-      $requestedPackageLineItems[] = $requestedPackageLineItem;
+      $requested_package_line_items[] = $requested_package_line_item;
     }
 
-    return $requestedPackageLineItems;
+    return $requested_package_line_items;
   }
 
   /**
@@ -723,23 +723,23 @@ class FedEx extends ShippingMethodBase {
    *   The RequestedShipment object.
    */
   protected function getFedExShipment(ShipmentInterface $shipment) {
-    $lineItems = $this->getRequestedPackageLineItems($shipment);
+    $line_items = $this->getRequestedPackageLineItems($shipment);
 
     $count = ($this->configuration['options']['packaging'] == static::PACKAGE_CALCULATE)
-      ? $lineItems[0]->getGroupPackageCount()
-      : count($lineItems);
+      ? $line_items[0]->getGroupPackageCount()
+      : count($line_items);
 
-    /** @var \Drupal\address\AddressInterface $recipientAddress */
-    $recipientAddress = $shipment->getShippingProfile()->get('address')->first();
-    $shipperAddress = $shipment->getOrder()->getStore()->getAddress();
+    /** @var \Drupal\address\AddressInterface $recipient_address */
+    $recipient_address = $shipment->getShippingProfile()->get('address')->first();
+    $shipper_address = $shipment->getOrder()->getStore()->getAddress();
 
-    $fedExShipment = new RequestedShipment();
+    $fedex_shipment = new RequestedShipment();
 
-    $fedExShipment
+    $fedex_shipment
       ->setTotalWeight($this->physicalWeightToFedex($shipment->getWeight()))
-      ->setShipper($this->getAddressForFedEx($shipperAddress))
-      ->setRecipient($this->getAddressForFedEx($recipientAddress))
-      ->setRequestedPackageLineItems($lineItems)
+      ->setShipper($this->getAddressForFedEx($shipper_address))
+      ->setRecipient($this->getAddressForFedEx($recipient_address))
+      ->setRequestedPackageLineItems($line_items)
       ->setPackageCount($count)
       ->setPreferredCurrency($shipment->getOrder()->getStore()->getDefaultCurrencyCode())
       ->setDropoffType($this->configuration['options']['dropoff'])
@@ -747,19 +747,19 @@ class FedEx extends ShippingMethodBase {
       ->setRateRequestTypes();
 
     if ($this->configuration['options']['insurance']) {
-      $fedExShipment->setTotalInsuredValue(new Money(
+      $fedex_shipment->setTotalInsuredValue(new Money(
         $shipment->getTotalDeclaredValue()->getCurrencyCode(),
         $shipment->getTotalDeclaredValue()->getNumber()
       ));
     }
 
-    return $fedExShipment;
+    return $fedex_shipment;
   }
 
   /**
    * Gets a rate request object for FedEx.
    *
-   * @param \NicholasCreativeMedia\FedExPHP\Services\RateService $rateService
+   * @param \NicholasCreativeMedia\FedExPHP\Services\RateService $rate_service
    *   The FedEx Rate Service.
    * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
    *   The shipment.
@@ -767,16 +767,16 @@ class FedEx extends ShippingMethodBase {
    * @return \NicholasCreativeMedia\FedExPHP\Structs\RateRequest
    *   The rate request object.
    */
-  protected function getRateRequest(RateService $rateService, ShipmentInterface $shipment) {
-    $rateRequest = $this->fedExRequest->getRateRequest($this->configuration);
-    $rateRequest->setRequestedShipment($this->getFedExShipment($shipment));
-    $rateRequest->setVersion($rateService->version);
+  protected function getRateRequest(RateService $rate_service, ShipmentInterface $shipment) {
+    $rate_request = $this->fedExRequest->getRateRequest($this->configuration);
+    $rate_request->setRequestedShipment($this->getFedExShipment($shipment));
+    $rate_request->setVersion($rate_service->version);
 
     // Allow other modules to alter the rate request before it's submitted.
-    $rateRequestEvent = new RateRequestEvent($rateRequest, $rateService, $shipment);
+    $rateRequestEvent = new RateRequestEvent($rate_request, $rate_service, $shipment);
     $this->eventDispatcher->dispatch(CommerceFedExEvents::BEFORE_RATE_REQUEST, $rateRequestEvent);
 
-    return $rateRequest;
+    return $rate_request;
   }
 
   /**
@@ -789,18 +789,18 @@ class FedEx extends ShippingMethodBase {
    *   The volume.
    */
   protected function getShipmentTotalVolume(ShipmentInterface $shipment) {
-    $orderItemStorage = \Drupal::entityTypeManager()->getStorage('commerce_order_item');
-    $orderItemIds = [];
+    $order_item_storage = \Drupal::entityTypeManager()->getStorage('commerce_order_item');
+    $order_item_ids = [];
 
-    foreach ($shipment->getItems() as $shipmentItem) {
-      $orderItemIds[] = $shipmentItem->getOrderItemId();
+    foreach ($shipment->getItems() as $shipment_item) {
+      $order_item_ids[] = $shipment_item->getOrderItemId();
     }
 
-    $orderItems = $orderItemStorage->loadMultiple($orderItemIds);
+    $order_items = $order_item_storage->loadMultiple($order_item_ids);
     $unit = $shipment->getPackageType()->getHeight()->getUnit();
 
-    $totalVolume = 0;
-    foreach ($orderItems as $orderItem) {
+    $total_volume = 0;
+    foreach ($order_items as $orderItem) {
       /** @var \Drupal\commerce_order\Entity\OrderItem $orderItem */
       $purchased_entity = $orderItem->getPurchasedEntity();
 
@@ -815,11 +815,11 @@ class FedEx extends ShippingMethodBase {
           ->multiply($dimensions->getLength()->convert($unit)->getNumber())
           ->getNumber();
 
-        $totalVolume += (float) $volume * $orderItem->getQuantity();
+        $total_volume += (float) $volume * $orderItem->getQuantity();
       }
     }
 
-    return $totalVolume;
+    return $total_volume;
   }
 
   /**
@@ -829,13 +829,13 @@ class FedEx extends ShippingMethodBase {
    *   TRUE if there is enough information to connect, FALSE otherwise.
    */
   protected function isConfigured() {
-    $apiInformation = $this->configuration['api_information'];
+    $api_information = $this->configuration['api_information'];
 
     return (
-      !empty($apiInformation['api_key'])
-      && !empty($apiInformation['api_password'])
-      && !empty($apiInformation['account_number'])
-      && !empty($apiInformation['meter_number'])
+      !empty($api_information['api_key'])
+      && !empty($api_information['api_password'])
+      && !empty($api_information['account_number'])
+      && !empty($api_information['meter_number'])
     );
   }
 
@@ -955,11 +955,11 @@ class FedEx extends ShippingMethodBase {
    */
   public static function isDomestic(ShipmentInterface $shipment) {
 
-    /* @var  AddressItem $shippingAddress */
-    $shippingAddress = $shipment->getShippingProfile()->get('address')->first();
+    /* @var  AddressItem $shipping_address */
+    $shipping_address = $shipment->getShippingProfile()->get('address')->first();
 
-    $domestic = ($shippingAddress instanceof AddressItem)
-      ? $shipment->getOrder()->getStore()->getAddress()->getCountryCode() == $shippingAddress->getCountryCode()
+    $domestic = ($shipping_address instanceof AddressItem)
+      ? $shipment->getOrder()->getStore()->getAddress()->getCountryCode() == $shipping_address->getCountryCode()
       : FALSE;
 
     return $domestic;

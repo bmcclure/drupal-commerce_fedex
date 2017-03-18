@@ -20,15 +20,18 @@ class FedExEventSubscriber implements EventSubscriberInterface {
    *   The rate request event.
    */
   public function onBeforeRateRequest(RateRequestEvent $event) {
-    $rateRequest = $event->getRateRequest();
+    $rate_request = $event->getRateRequest();
 
     // @todo Alter the rate request.
   }
 
   /**
-   * @inheritdoc
+   * Function getSubscribedEvents.
+   *
+   * @return array
+   *   The subscribed events.
    */
-  static function getSubscribedEvents() {
+  public static function getSubscribedEvents() {
     $events = [];
     $events[CommerceFedExEvents::BEFORE_RATE_REQUEST][] = ['onBeforeRateRequest'];
 

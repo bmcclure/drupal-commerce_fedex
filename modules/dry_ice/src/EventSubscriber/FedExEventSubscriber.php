@@ -26,11 +26,11 @@ class FedExEventSubscriber implements EventSubscriberInterface {
   /**
    * Constructs a new ShippingMethodBase object.
    *
-   * @param \Drupal\commerce_shipping\PackageTypeManagerInterface $packageTypeManager
+   * @param \Drupal\commerce_shipping\PackageTypeManagerInterface $package_type_manager
    *   The package type manager.
    */
-  public function __construct(PackageTypeManagerInterface $packageTypeManager) {
-    $this->packageTypeManager = $packageTypeManager;
+  public function __construct(PackageTypeManagerInterface $package_type_manager) {
+    $this->packageTypeManager = $package_type_manager;
   }
 
   /**

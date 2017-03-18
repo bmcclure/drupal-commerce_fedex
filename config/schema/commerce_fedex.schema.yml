@@ -73,14 +73,3 @@ commerce_fedex_plugin:
     id:
       type: string
       label: plugin_id
-
-
-
-
-
-
-
-
-
-
-

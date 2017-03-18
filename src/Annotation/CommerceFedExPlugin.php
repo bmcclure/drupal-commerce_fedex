@@ -38,6 +38,6 @@ class CommerceFedExPlugin extends Plugin {
    *
    * @ingroup plugin_translatable
    */
-  public $optionsLabel;
+  public $options_label;
 
 }

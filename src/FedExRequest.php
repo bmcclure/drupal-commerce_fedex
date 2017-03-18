@@ -35,12 +35,12 @@ class FedExRequest implements FedExRequestInterface {
         throw new \Exception("FedEx service $name not found");
       }
 
-      $wsdlOptions = $arguments[1] ?: [];
-      $resetSoapClient = isset($arguments[2]) ? $arguments[2] : TRUE;
+      $wsdl_options = $arguments[1] ?: [];
+      $reset_soap_client = isset($arguments[2]) ? $arguments[2] : TRUE;
 
       return new $name(
-        $wsdlOptions,
-        $resetSoapClient,
+        $wsdl_options,
+        $reset_soap_client,
         $this->getMode($configuration)
       );
     }
@@ -63,93 +63,93 @@ class FedExRequest implements FedExRequestInterface {
    * {@inheritdoc}
    */
   public function getRateRequest(array $configuration) {
-    $rateRequest = new RateRequest(
+    $rate_request = new RateRequest(
       $this->getWebAuthenticationDetail($configuration),
       $this->getClientDetail($configuration)
     );
 
-    return $rateRequest;
+    return $rate_request;
   }
 
   /**
    * {@inheritdoc}
    */
   public function getRateService(array $configuration, array $wsdlOptions = [], $resetSoapClient = TRUE) {
-    $rateService = new RateService($wsdlOptions, $resetSoapClient, $this->getMode($configuration));
+    $rate_service = new RateService($wsdlOptions, $resetSoapClient, $this->getMode($configuration));
 
-    return $rateService;
+    return $rate_service;
   }
 
   /**
    * {@inheritdoc}
    */
   public function getTrackRequest(array $configuration) {
-    $trackRequest = new TrackRequest(
+    $track_request = new TrackRequest(
       $this->getWebAuthenticationDetail($configuration),
       $this->getClientDetail($configuration)
     );
 
-    return $trackRequest;
+    return $track_request;
   }
 
   /**
    * {@inheritdoc}
    */
   public function getTrackService(array $configuration, array $wsdlOptions = [], $resetSoapClient = TRUE) {
-    $trackService = new TrackService($wsdlOptions, $resetSoapClient, $this->getMode($configuration));
+    $track_service = new TrackService($wsdlOptions, $resetSoapClient, $this->getMode($configuration));
 
-    return $trackService;
+    return $track_service;
   }
 
   /**
    * {@inheritdoc}
    */
   public function getShipRequest(array $configuration) {
-    $shipRequest = new ProcessShipmentRequest(
+    $ship_request = new ProcessShipmentRequest(
       $this->getWebAuthenticationDetail($configuration),
       $this->getClientDetail($configuration)
     );
 
-    return $shipRequest;
+    return $ship_request;
   }
 
   /**
    * {@inheritdoc}
    */
   public function getShipService(array $configuration, array $wsdlOptions = [], $resetSoapClient = TRUE) {
-    $shipService = new ShipService(
+    $ship_service = new ShipService(
       $wsdlOptions,
       $resetSoapClient,
       $this->getMode($configuration)
     );
 
-    return $shipService;
+    return $ship_service;
   }
 
   /**
    * {@inheritdoc}
    */
   public function getWebAuthenticationDetail(array $configuration) {
-    $webAuthenticationDetail = new WebAuthenticationDetail();
-    $webAuthenticationDetail->setUserCredential(new WebAuthenticationCredential(
+    $web_authentication_detail = new WebAuthenticationDetail();
+    $web_authentication_detail->setUserCredential(new WebAuthenticationCredential(
       $configuration['api_information']['api_key'],
       $configuration['api_information']['api_password']
     ));
 
-    return $webAuthenticationDetail;
+    return $web_authentication_detail;
   }
 
   /**
    * {@inheritdoc}
    */
   public function getClientDetail(array $configuration) {
-    $clientDetail = new ClientDetail(
+    $client_detail = new ClientDetail(
       $configuration['api_information']['account_number'],
       $configuration['api_information']['meter_number'],
       '123'
     );
 
-    return $clientDetail;
+    return $client_detail;
   }
 
   /**

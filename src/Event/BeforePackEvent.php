@@ -41,9 +41,9 @@ class BeforePackEvent extends Event {
    *
    * @param array $order_items
    *   The order items array.
-   * @param OrderInterface $order
+   * @param \Drupal\commerce_order\Entity\OrderInterface $order
    *   The order being packed.
-   * @param ProfileInterface $shipping_profile
+   * @param \Drupal\profile\Entity\ProfileInterface $shipping_profile
    *   The selected shipping profile.
    */
   public function __construct(array $order_items, OrderInterface $order, ProfileInterface $shipping_profile) {
@@ -78,7 +78,7 @@ class BeforePackEvent extends Event {
   /**
    * Gets the order.
    *
-   * @return OrderInterface
+   * @return \Drupal\commerce_order\Entity\OrderInterface
    *   The order.
    */
   public function getOrder() {
@@ -88,7 +88,7 @@ class BeforePackEvent extends Event {
   /**
    * Sets the order.
    *
-   * @param OrderInterface $order
+   * @param \Drupal\commerce_order\Entity\OrderInterface $order
    *   The order.
    *
    * @return $this
@@ -101,7 +101,7 @@ class BeforePackEvent extends Event {
   /**
    * Gets the shipping profile.
    *
-   * @return ProfileInterface
+   * @return \Drupal\profile\Entity\ProfileInterface
    *   The shipping profile.
    */
   public function getShippingProfile() {
@@ -111,7 +111,7 @@ class BeforePackEvent extends Event {
   /**
    * Sets the shipping profile.
    *
-   * @param ProfileInterface $shipping_profile
+   * @param \Drupal\profile\Entity\ProfileInterface $shipping_profile
    *   The shipping profile.
    *
    * @return $this

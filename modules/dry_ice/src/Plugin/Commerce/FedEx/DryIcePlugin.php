@@ -14,7 +14,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * @CommerceFedExPlugin(
  *   id = "dry_ice",
  *   label = @Translation("FedEx Dry Ice"),
- *   optionsLabel = @Translation("Dry Ice Shipment Options")
+ *   options_label = @Translation("Dry Ice Shipment Options")
  * )
  */
 class DryIcePlugin extends FedExPluginBase {

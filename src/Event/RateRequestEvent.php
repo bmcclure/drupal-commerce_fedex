@@ -38,23 +38,23 @@ class RateRequestEvent extends Event {
   /**
    * Constructs a new BeforePackEvent object.
    *
-   * @param RateRequest $rateRequest
+   * @param \NicholasCreativeMedia\FedExPHP\Structs\RateRequest $rate_request
    *   The rate request object.
-   * @param RateService $rateService
+   * @param \NicholasCreativeMedia\FedExPHP\Services\RateService $rate_service
    *   The FedEx rate service being used.
-   * @param ShipmentInterface $shipment
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
    *   The shipment being requested.
    */
-  public function __construct(RateRequest $rateRequest, RateService $rateService, ShipmentInterface $shipment) {
-    $this->rateRequest = $rateRequest;
-    $this->rateService = $rateService;
+  public function __construct(RateRequest $rate_request, RateService $rate_service, ShipmentInterface $shipment) {
+    $this->rateRequest = $rate_request;
+    $this->rateService = $rate_service;
     $this->shipment = $shipment;
   }
 
   /**
    * Gets the rate request object.
    *
-   * @return RateRequest
+   * @return \NicholasCreativeMedia\FedExPHP\Structs\RateRequest
    *   The rate request object.
    */
   public function getRateRequest() {
@@ -64,20 +64,20 @@ class RateRequestEvent extends Event {
   /**
    * Sets the rate request object.
    *
-   * @param RateRequest $rateRequest
+   * @param \NicholasCreativeMedia\FedExPHP\Structs\RateRequest $rate_request
    *   The rate request object.
    *
    * @return $this
    */
-  public function setRateRequest(RateRequest $rateRequest) {
-    $this->rateRequest = $rateRequest;
+  public function setRateRequest(RateRequest $rate_request) {
+    $this->rateRequest = $rate_request;
     return $this;
   }
 
   /**
    * Gets the rate service.
    *
-   * @return RateService
+   * @return \NicholasCreativeMedia\FedExPHP\Services\RateService
    *   The rate service.
    */
   public function getRateService() {
@@ -87,20 +87,20 @@ class RateRequestEvent extends Event {
   /**
    * Sets the rate service.
    *
-   * @param RateService $rateService
+   * @param \NicholasCreativeMedia\FedExPHP\Services\RateService $rate_service
    *   The rate service.
    *
    * @return $this
    */
-  public function setRateService(RateService $rateService) {
-    $this->rateService = $rateService;
+  public function setRateService(RateService $rate_service) {
+    $this->rateService = $rate_service;
     return $this;
   }
 
   /**
    * Gets the shipment.
    *
-   * @return ShipmentInterface
+   * @return \Drupal\commerce_shipping\Entity\ShipmentInterface
    *   The shipment.
    */
   public function getShipment() {
@@ -110,7 +110,7 @@ class RateRequestEvent extends Event {
   /**
    * Sets the shipment.
    *
-   * @param ShipmentInterface $shipment
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
    *   The shipment.
    *
    * @return $this
