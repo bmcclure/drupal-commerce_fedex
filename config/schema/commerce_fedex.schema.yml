@@ -1,0 +1,86 @@
+commerce_shipping.commerce_shipping_method.plugin.fedex:
+  type: commerce_shipping_method_configuration
+  mapping:
+    api_information:
+      label: 'API information'
+      type: mapping
+      mapping:
+        api_key:
+          type: string
+          label: 'API key'
+        api_password:
+          type: string
+          label: 'API password'
+        account_number:
+          type: integer
+          label: 'Account number'
+        meter_number:
+          type: integer
+          label: 'Meter number'
+        mode:
+          type: label:
+          label: 'Choose whether to use the test or live mode.'
+    options:
+      type: mapping
+      label: 'Fedex Options'
+      mapping:
+        packaging:
+          type: label
+          label: 'Packaging Strategy'
+        rate_request_type:
+          type: label
+          label: 'Pricing options'
+        dropoff:
+          type: label
+          label: 'Default dropoff/pickup location for your FedEx shipments'
+        insurance:
+          type: boolean
+          label: 'Include Insurance'
+        log:
+          type: mapping:
+          label: 'Log the following messages for debugging'
+          mapping:
+            request:
+              type: field.value.boolean
+              mapping:
+                value:
+                  label: 'API request messages'
+            response:
+              type: field.value.boolean
+              mapping:
+                value:
+                  label: 'API response messages'
+    plugins:
+    type: sequence
+    label: 'FedEx Service Plugins'
+    sequence:
+      type: mapping
+      label: 'Fedex Service Plugin'
+      mapping:
+        plugin_id:
+          type: string
+          label: 'Plugin Id'
+        configuration:
+          type: commerce_fedex.fedex_plugin.plugin.[%parent.plugin_id]
+
+commerce_fedex.fedex_plugin.plugin.*:
+  type: commerce_fedex_plugin
+
+commerce_fedex_plugin:
+  type: mapping
+  label: 'FedEx Plugin'
+  mapping:
+    id:
+      type: string
+      label: plugin_id
+
+
+
+
+
+
+
+
+
+
+
