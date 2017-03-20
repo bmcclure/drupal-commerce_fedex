@@ -28,7 +28,6 @@ use NicholasCreativeMedia\FedExPHP\Services\RateService;
 use NicholasCreativeMedia\FedExPHP\Structs\Address;
 use NicholasCreativeMedia\FedExPHP\Structs\Dimensions;
 use NicholasCreativeMedia\FedExPHP\Structs\Money;
-use NicholasCreativeMedia\FedExPHP\Structs\PackageSpecialServicesRequested;
 use NicholasCreativeMedia\FedExPHP\Structs\Party;
 use NicholasCreativeMedia\FedExPHP\Structs\RequestedPackageLineItem;
 use NicholasCreativeMedia\FedExPHP\Structs\RequestedShipment;
@@ -230,10 +229,10 @@ class FedEx extends ShippingMethodBase {
       '#default_value' => $this->configuration['api_information']['api_key'],
     ];
     $form['api_information']['api_password'] = [
-      '#type' => 'textfield',
+      '#type' => 'password',
       '#title' => $this->t('API password'),
       '#description' => $this->t('Enter your FedEx API password only if you wish to change its value.'),
-      '#default_value' => $this->configuration['api_information']['api_password'],
+      '#default_value' => '',
     ];
     $form['api_information']['account_number'] = [
       '#type' => 'number',
@@ -315,9 +314,13 @@ class FedEx extends ShippingMethodBase {
       $plugin = $this->plugins->get($plugin_id);
       $subform = [
         '#type' => 'details',
-        '#title' => $definition['optionsLabel']->render(),
+        '#title' => $definition['options_label']->render(),
+        '#description' => $definition['options_description']->render(),
       ];
       $form[$plugin_id] = $plugin->buildConfigurationForm($subform, $form_state);
+      if ($form[$plugin_id] == $subform) {
+        unset($form[$plugin_id]);
+      }
     }
     return $form;
   }
@@ -332,9 +335,11 @@ class FedEx extends ShippingMethodBase {
     parent::validateConfigurationForm($form, $form_state);
 
     foreach ($this->fedExServiceManager->getDefinitions() as $plugin_id => $definition) {
-      /** @var \Drupal\commerce_fedex\Plugin\Commerce\FedEx\FedExPluginInterface $plugin */
-      $plugin = $this->plugins->get($plugin_id);
-      $plugin->validateConfigurationForm($form[$plugin_id], SubformState::createForSubform($form[$plugin_id], $form_state->getCompleteForm(), $form_state));
+      if (!empty($form[$plugin_id])) {
+        /** @var \Drupal\commerce_fedex\Plugin\Commerce\FedEx\FedExPluginInterface $plugin */
+        $plugin = $this->plugins->get($plugin_id);
+        $plugin->validateConfigurationForm($form[$plugin_id], SubformState::createForSubform($form[$plugin_id], $form_state->getCompleteForm(), $form_state));
+      }
     }
   }
 
@@ -366,8 +371,11 @@ class FedEx extends ShippingMethodBase {
       foreach ($this->fedExServiceManager->getDefinitions() as $plugin_id => $definition) {
         /** @var \Drupal\commerce_fedex\Plugin\Commerce\FedEx\FedExPluginInterface $plugin */
         $plugin = $this->plugins->get($plugin_id);
-        $plugin->submitConfigurationForm($form[$plugin_id], SubformState::createForSubform($form[$plugin_id], $form_state->getCompleteForm(), $form_state));
+        if (!empty($form[$plugin_id])) {
+          $plugin->submitConfigurationForm($form[$plugin_id], SubformState::createForSubform($form[$plugin_id], $form_state->getCompleteForm(), $form_state));
+        }
         $this->configuration['plugins'][$plugin_id]['configuration'] = $plugin->getConfiguration();
+
       }
     }
     parent::submitConfigurationForm($form, $form_state);
@@ -479,9 +487,9 @@ class FedEx extends ShippingMethodBase {
    * @return array
    *   The options list.
    */
-  protected static function enumToList(array $enums) {
+  public static function enumToList(array $enums) {
     return array_combine($enums, array_map(function ($d) {
-      return ucwords(str_replace('_', ' ', $d));
+      return ucwords(strtolower(str_replace('_', ' ', $d)));
     }, $enums));
   }
 
@@ -601,8 +609,7 @@ class FedEx extends ShippingMethodBase {
       ->setWeight($this->physicalWeightToFedex($shipment->getWeight()))
       ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
       ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
-      ->setItemDescription($shipment_title)
-      ->setSpecialServicesRequested(new PackageSpecialServicesRequested());
+      ->setItemDescription($shipment_title);
 
     if ($this->configuration['options']['insurance']) {
       $requested_package_line_item->setInsuredValue(new Money(
@@ -646,8 +653,7 @@ class FedEx extends ShippingMethodBase {
       ->setWeight($this->physicalWeightToFedex($package_weight))
       ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
       ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
-      ->setItemDescription($shipment_title)
-      ->setSpecialServicesRequested(new PackageSpecialServicesRequested());
+      ->setItemDescription($shipment_title);
 
     if ($this->configuration['options']['insurance']) {
       $requested_package_line_item->setInsuredValue(new Money(
@@ -680,8 +686,7 @@ class FedEx extends ShippingMethodBase {
         ->setWeight($this->physicalWeightToFedex($shipment_item->getWeight()))
         ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
         ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
-        ->setItemDescription($this->getCleanTitle($shipment_item))
-        ->setSpecialServicesRequested(new PackageSpecialServicesRequested());
+        ->setItemDescription($this->getCleanTitle($shipment_item));
 
       if ($this->configuration['options']['insurance']) {
         $requested_package_line_item->setInsuredValue(new Money(
