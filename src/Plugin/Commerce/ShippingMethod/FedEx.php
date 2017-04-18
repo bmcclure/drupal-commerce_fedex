@@ -404,34 +404,32 @@ class FedEx extends ShippingMethodBase {
 
     $rate_service = $this->fedExRequest->getRateService($this->configuration);
     $rate_request = $this->getRateRequest($rate_service, $shipment);
-
     $this->logRequest('Sending FedEx request.', $rate_request);
-
     $response = $rate_service->getRates($rate_request);
-
-    if (!$response) {
-      $this->logRequest('FedEx sent no response back.', $rate_request, LogLevel::NOTICE, TRUE);
-    }
-    else {
-      $this->logRequest('FedEx response received.', $rate_request);
-    }
-
     $rates = [];
-    if ($response->getHighestSeverity() == 'SUCCESS') {
-      foreach ($response->getRateReplyDetails() as $rate_details) {
-        if (in_array($rate_details->getServiceType(), array_keys($this->getServices()))) {
-          $cost = $rate_details
-            ->getRatedShipmentDetails()[0]
-            ->getShipmentRateDetail()
-            ->getTotalNetChargeWithDutiesAndTaxes();
 
-          $rates[] = new ShippingRate(
-            $rate_details->getServiceType(),
-            $this->services[$rate_details->getServiceType()],
-            new Price($cost->getAmount(), $cost->getCurrency())
-          );
+    if ($response) {
+      $this->logRequest('FedEx response received.', $rate_request);
+
+      if ($response->getHighestSeverity() == 'SUCCESS') {
+        foreach ($response->getRateReplyDetails() as $rate_details) {
+          if (in_array($rate_details->getServiceType(), array_keys($this->getServices()))) {
+            $cost = $rate_details
+              ->getRatedShipmentDetails()[0]
+              ->getShipmentRateDetail()
+              ->getTotalNetChargeWithDutiesAndTaxes();
+
+            $rates[] = new ShippingRate(
+              $rate_details->getServiceType(),
+              $this->services[$rate_details->getServiceType()],
+              new Price($cost->getAmount(), $cost->getCurrency())
+            );
+          }
         }
       }
+    }
+    else {
+      $this->logRequest('FedEx sent no response back.', $rate_request, LogLevel::NOTICE, TRUE);
     }
 
     return $rates;
