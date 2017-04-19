@@ -409,7 +409,7 @@ class FedEx extends ShippingMethodBase {
     $rates = [];
 
     if ($response) {
-      $this->logRequest('FedEx response received.', $rate_request);
+      $this->logRequest('FedEx response received.', $response);
 
       if ($response->getHighestSeverity() == 'SUCCESS') {
         foreach ($response->getRateReplyDetails() as $rate_details) {
