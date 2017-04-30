@@ -2,10 +2,18 @@
 
 namespace Drupal\commerce_fedex_dry_ice\Plugin\Commerce\FedEx;
 
+use Drupal\address\Plugin\Field\FieldType\AddressItem;
 use Drupal\commerce_fedex\Plugin\Commerce\FedEx\FedExPluginBase;
+use Drupal\commerce_fedex\Plugin\Commerce\ShippingMethod\FedEx;
+use Drupal\commerce_shipping\Entity\ShipmentInterface;
 use Drupal\commerce_shipping\PackageTypeManagerInterface;
+use Drupal\commerce_shipping\ShipmentItem;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\physical\Weight;
 use Drupal\physical\WeightUnit;
+use NicholasCreativeMedia\FedExPHP\Enums\PackageSpecialServiceType;
+use NicholasCreativeMedia\FedExPHP\Structs\PackageSpecialServicesRequested;
+use NicholasCreativeMedia\FedExPHP\Structs\RequestedPackageLineItem;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -19,6 +27,9 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  * )
  */
 class DryIcePlugin extends FedExPluginBase {
+
+  const NOT_DRY_ICE = 0;
+  const DRY_ICE = 1;
 
   /**
    * The Package Type Manager.
@@ -142,6 +153,130 @@ class DryIcePlugin extends FedExPluginBase {
       $this->configuration['intl']['package_type'] = $values['intl']['package_type'];
       $this->configuration['intl']['weight'] = $values['intl']['weight'];
     }
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function adjustPackage(RequestedPackageLineItem $package, array $shipment_items, ShipmentInterface $shipment) {
+    $type = $this->getType($shipment);
+    if (!$this->verifyPackage($shipment_items, $type)) {
+      throw new \Exception("Package cannot be shipped, mix of Dry Ice and non Dry Ice Items");
+    }
+
+    if ($this->isDryIceItem(reset($shipment_items), $type)) {
+      $special_services_requested = $package->getSpecialServicesRequested();
+      if (empty($special_services_requested)) {
+        $special_services_requested = new PackageSpecialServicesRequested();
+      }
+      $dry_ice_weight = new Weight($this->configuration[$type]['weight']['number'], $this->configuration[$type]['weight']['unit']);
+      $special_services_requested->addToSpecialServiceTypes(PackageSpecialServiceType::VALUE_DRY_ICE);
+      $special_services_requested->setDryIceWeight(FedEx::physicalWeightToFedex($dry_ice_weight));
+      /** @var \Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageType $package_type */
+      $package_type = $this->packageTypeManager->createInstance($this->configuration[$type]['package_type']);
+      $package->setDimensions(Fedex::packageToFedexDimensions($package_type));
+      $package->setWeight(FedEx::packageTotalWeight($shipment_items, $package_type, $dry_ice_weight));
+      $package->setSpecialServicesRequested($special_services_requested);
+    }
+    $package = parent::adjustPackage($package, $shipment_items, $shipment);
+    return $package;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function splitPackage(array $shipment_items, ShipmentInterface $shipment) {
+    $type = $this->getType($shipment);
+    $packages = [static::NOT_DRY_ICE => [], static::DRY_ICE => []];
+    foreach ($shipment_items as $shipment_item) {
+      if ($this->isDryIceItem($shipment_item, $type)) {
+        $packages[static::DRY_ICE][] = $shipment_item;
+      }
+      else {
+        $packages[static::NOT_DRY_ICE][] = $shipment_item;
+      }
+    }
+
+    return $packages;
+  }
+
+  /**
+   * Verified a package has all dry ic eor non-dry ice items.
+   *
+   * @param array $shipment_items
+   *   The shipment items to check.
+   * @param string $type
+   *   The type, 'domestic' or 'intl' depending on the shipping distance.
+   *
+   * @return bool
+   *   True if the package is internally consistant.
+   */
+  protected function verifyPackage(array $shipment_items, string $type) {
+    $dryIceBox = $this->isDryIceBox($shipment_items, $type);
+    $storage = \Drupal::entityTypeManager()->getStorage('commerce_order_item');
+    foreach ($shipment_items as $shipment_item) {
+      if ($dryIceBox xor $this->isDryIceItem($shipment_item, $type)) {
+        return FALSE;
+      }
+
+    }
+    return TRUE;
+  }
+
+  /**
+   * Determine whether a droup of shipment items requires dry ice shipping.
+   *
+   * @param array $shipment_items
+   *   The shipment items to check.
+   * @param string $type
+   *   The type, 'domestic' or 'intl' depending on the shipping distance.
+   *
+   * @return bool
+   *   True if the package needs dry ice shipping.
+   */
+  protected function isDryIceBox(array $shipment_items, string $type) {
+    return $this->isDryIceItem(reset($shipment_items), $type);
+  }
+
+  /**
+   * Determine whether a shipment item requires dry ice shipping or not.
+   *
+   * @param \Drupal\commerce_shipping\ShipmentItem $shipment_item
+   *   The shipment item.
+   * @param string $type
+   *   The type, 'domestic' or 'intl' depending on the shipping distance.
+   *
+   * @return bool
+   *   true if the shipment item requires dry ice shipping.
+   */
+  protected function isDryIceItem(ShipmentItem $shipment_item, string $type) {
+    $storage = \Drupal::entityTypeManager()->getStorage('commerce_order_item');
+    /** @var \Drupal\commerce_order\Entity\OrderItemInterface $order_item */
+    $order_item = $storage->load($shipment_item->getOrderItemId());
+    $purchased_entity = $order_item->getPurchasedEntity();
+    return $purchased_entity->hasField('fedex_dry_ice_' . $type) && !$purchased_entity->get('fedex_dry_ice_' . $type)->isEmpty() && $purchased_entity->get('fedex_dry_ice_' . $type)->first()->getValue()['value'] == 1;
+
+  }
+
+  /**
+   * Determine if this is a domestic or international shipment.
+   *
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
+   *   The shipment to check.
+   *
+   * @return string
+   *   either 'domestic' or 'intl'
+   */
+  protected function getType(ShipmentInterface $shipment) {
+
+    /* @var  AddressItem $shipping_address */
+    $shipping_address = $shipment->getShippingProfile()->get('address')->first();
+
+    $domestic = ($shipping_address instanceof AddressItem)
+      ? $shipment->getOrder()->getStore()->getAddress()->getCountryCode() == $shipping_address->getCountryCode()
+      : FALSE;
+
+    return $domestic ? 'domestic' : 'intl';
   }
 
 }

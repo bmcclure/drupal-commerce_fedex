@@ -17,11 +17,14 @@ use Drupal\commerce_shipping\ShipmentItem;
 use Drupal\commerce_shipping\ShippingRate;
 use Drupal\Core\Form\SubformState;
 use Drupal\Core\Plugin\DefaultLazyPluginCollection;
+use Drupal\physical\Volume;
+use Drupal\physical\VolumeUnit;
 use Drupal\physical\Weight as PhysicalWeight;
 use Drupal\physical\WeightUnit as PhysicalWeightUnits;
 use Drupal\physical\LengthUnit as PhysicalLengthUnits;
 use Drupal\Core\Form\FormStateInterface;
 use NicholasCreativeMedia\FedExPHP\Enums\DropoffType;
+use NicholasCreativeMedia\FedExPHP\Enums\LinearUnits;
 use NicholasCreativeMedia\FedExPHP\Enums\PhysicalPackagingType;
 use NicholasCreativeMedia\FedExPHP\Enums\RateRequestType;
 use NicholasCreativeMedia\FedExPHP\Services\RateService;
@@ -203,10 +206,7 @@ class FedEx extends ShippingMethodBase {
   public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
 
     /* @todo Remove hack when commerce issue  #2859423 is resolved */
-    if ($this->configuration == $this->defaultConfiguration()) {
-      $this->fixConfiguration($form_state);
-    }
-
+    //   $this->fixConfiguration($form_state);
     $form = parent::buildConfigurationForm($form, $form_state);
 
     // Select all services by default.
@@ -330,8 +330,7 @@ class FedEx extends ShippingMethodBase {
    */
   public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
     /* @todo Remove hack when commerce issue  #2859423 is resolved */
-    $this->fixConfiguration($form_state);
-
+    //   $this->fixConfiguration($form_state);
     parent::validateConfigurationForm($form, $form_state);
 
     foreach ($this->fedExServiceManager->getDefinitions() as $plugin_id => $definition) {
@@ -348,8 +347,7 @@ class FedEx extends ShippingMethodBase {
    */
   public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
     /* @todo Remove hack when commerce issue  #2859423 is resolved */
-    $this->fixConfiguration($form_state);
-
+    // $this->fixConfiguration($form_state);
     if (!$form_state->getErrors()) {
 
       $values = $form_state->getValue($form['#parents']);
@@ -394,8 +392,13 @@ class FedEx extends ShippingMethodBase {
    *   Whether to skip the check to log or not.
    */
   protected function logRequest($message, $data, $level = LogLevel::INFO, $skip_config_check = FALSE) {
-    if ($skip_config_check || $this->configuration['options']['log']['request']) {
-      $this->watchdog->log($level, "$message <br>@rate_request", [
+    /* If we are using the old configuration */
+    if (is_array($this->configuration['options']['log'])) {
+
+    }
+
+    if ($skip_config_check || @$this->configuration['options']['log']['request']) {
+      $this->watchdog->log($level, "$message <br><pre>@rate_request</pre>", [
         '@rate_request' => var_export($data, TRUE),
       ]);
     }
@@ -418,14 +421,17 @@ class FedEx extends ShippingMethodBase {
     $response = $rate_service->getRates($rate_request);
 
     if (!$response) {
+      /** @var \SoapFault $error */
+      $error = $rate_service->getLastError();
       $this->logRequest('FedEx sent no response back.', $rate_request, LogLevel::NOTICE, TRUE);
+      return [];
     }
     else {
-      $this->logRequest('FedEx response received.', $rate_request);
+      $this->logRequest('FedEx response received.', $response);
     }
 
     $rates = [];
-    if ($response->getHighestSeverity() == 'SUCCESS') {
+    if ($response->getHighestSeverity() == 'SUCCESS' || ($response->getHighestSeverity() == 'WARNING' && is_array($response->getRateReplyDetails()))) {
       foreach ($response->getRateReplyDetails() as $rate_details) {
         if (in_array($rate_details->getServiceType(), array_keys($this->getServices()))) {
           $cost = $rate_details
@@ -596,29 +602,38 @@ class FedEx extends ShippingMethodBase {
    *   The package line items.
    */
   protected function getRequestedPackageLineItemsAllInOne(ShipmentInterface $shipment) {
-    $requested_package_line_item = new RequestedPackageLineItem();
 
-    $shipment_title = $shipment->getTitle();
-    if (!is_string($shipment_title)) {
-      $shipment_title = $shipment_title->render();
+    $packages = $this->splitPackages($shipment);
+
+    $requested_package_line_items = [];
+
+    foreach ($packages as $delta => $package) {
+      $requested_package_line_item = new RequestedPackageLineItem();
+      $shipment_title = $shipment->getTitle();
+
+      if (!is_string($shipment_title)) {
+        $shipment_title = $shipment_title->render();
+      }
+
+      $requested_package_line_item
+        ->setSequenceNumber($delta + 1)
+        ->setGroupPackageCount(1)
+        ->setWeight(static::packageTotalWeight($package, $shipment->getPackageType()))
+        ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
+        ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
+        ->setItemDescription($shipment_title);
+
+      if ($this->configuration['options']['insurance']) {
+        $requested_package_line_item->setInsuredValue(new Money(
+          $shipment->getTotalDeclaredValue()->getCurrencyCode(),
+          $shipment->getTotalDeclaredValue()->getNumber()
+        ));
+      }
+
+      $requested_package_line_items[] = $this->adjustPackage($requested_package_line_item, $package, $shipment);
     }
 
-    $requested_package_line_item
-      ->setSequenceNumber(1)
-      ->setGroupPackageCount(1)
-      ->setWeight($this->physicalWeightToFedex($shipment->getWeight()))
-      ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
-      ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
-      ->setItemDescription($shipment_title);
-
-    if ($this->configuration['options']['insurance']) {
-      $requested_package_line_item->setInsuredValue(new Money(
-        $shipment->getTotalDeclaredValue()->getCurrencyCode(),
-        $shipment->getTotalDeclaredValue()->getNumber()
-      ));
-    }
-
-    return [$requested_package_line_item];
+    return $requested_package_line_items;
   }
 
   /**
@@ -631,38 +646,18 @@ class FedEx extends ShippingMethodBase {
    *   The package line items.
    */
   protected function getRequestedPackageLineItemsCalculate(ShipmentInterface $shipment) {
-    $package_volume = $this->getPackageVolume($shipment->getPackageType());
-    $total_volume = $this->getShipmentTotalVolume($shipment);
-
-    $count = ($total_volume == 0 || $total_volume < $package_volume)
-      ? 1
-      : ceil($total_volume / $package_volume);
-
-    $package_weight = $shipment->getWeight()->divide((string) $count);
-
-    $shipment_title = $shipment->getTitle();
-    if (!is_string($shipment_title)) {
-      $shipment_title = $shipment_title->render();
+    $requested_package_line_items = $this->getRequestedPackageLineItemsAllInOne($shipment);
+    $packages = $this->splitPackages($shipment);
+    foreach ($requested_package_line_items as &$requested_package_line_item) {
+      /** @var \NicholasCreativeMedia\FedExPHP\Structs\RequestedPackageLineItem $requested_package_line_item */
+      $count = static::calculatePackageCount($requested_package_line_item, $packages[$requested_package_line_item->getSequenceNumber() - 1]);
+      if ($count) {
+        $requested_package_line_item->setGroupPackageCount($count);
+        $requested_package_line_item->getWeight()->setValue($requested_package_line_item->getWeight()->getValue() / $count);
+      }
     }
 
-    $requested_package_line_item = new RequestedPackageLineItem();
-
-    $requested_package_line_item
-      ->setGroupNumber(1)
-      ->setGroupPackageCount($count)
-      ->setWeight($this->physicalWeightToFedex($package_weight))
-      ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
-      ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
-      ->setItemDescription($shipment_title);
-
-    if ($this->configuration['options']['insurance']) {
-      $requested_package_line_item->setInsuredValue(new Money(
-        $shipment->getTotalDeclaredValue()->getCurrencyCode(),
-        $shipment->getTotalDeclaredValue()->getNumber()
-      ));
-    }
-
-    return [$requested_package_line_item];
+    return $requested_package_line_items;
   }
 
   /**
@@ -676,14 +671,18 @@ class FedEx extends ShippingMethodBase {
    */
   protected function getRequestedPackageLineItemsIndividual(ShipmentInterface $shipment) {
     $requested_package_line_items = [];
-
+    $weightUnits = '';
     foreach ($shipment->getItems() as $delta => $shipment_item) {
       $requested_package_line_item = new RequestedPackageLineItem();
+      if ($weightUnits == '') {
+        /* All packages must have the same Weight Unit */
+        $weightUnits = $shipment_item->getWeight()->getUnit();
+      }
 
       $requested_package_line_item
         ->setSequenceNumber($delta + 1)
         ->setGroupPackageCount(1)
-        ->setWeight($this->physicalWeightToFedex($shipment_item->getWeight()))
+        ->setWeight($this->physicalWeightToFedex($shipment_item->getWeight()->convert($weightUnits)))
         ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
         ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
         ->setItemDescription($this->getCleanTitle($shipment_item));
@@ -694,7 +693,7 @@ class FedEx extends ShippingMethodBase {
           $shipment_item->getDeclaredValue()->getNumber()
         ));
       }
-
+      // $this->adjustPackage($requested_package_line_item, [$shipment_item], $shipment);.
       $requested_package_line_items[] = $requested_package_line_item;
     }
 
@@ -724,7 +723,6 @@ class FedEx extends ShippingMethodBase {
     $fedex_shipment = new RequestedShipment();
 
     $fedex_shipment
-      ->setTotalWeight($this->physicalWeightToFedex($shipment->getWeight()))
       ->setShipper($this->getAddressForFedEx($shipper_address))
       ->setRecipient($this->getAddressForFedEx($recipient_address))
       ->setRequestedPackageLineItems($line_items)
@@ -742,6 +740,51 @@ class FedEx extends ShippingMethodBase {
     }
 
     return $fedex_shipment;
+  }
+
+  /**
+   * Queries plugins to split shipments into fedex packages.
+   *
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
+   *   The shipment to split.
+   *
+   * @return array
+   *   An array of arrays or shipment items.
+   */
+  protected function splitPackages(ShipmentInterface $shipment) {
+    $packages = [$shipment->getItems()];
+    foreach ($this->fedExServiceManager->getDefinitions() as $plugin_id => $definition) {
+      /** @var \Drupal\commerce_fedex\Plugin\Commerce\FedEx\FedExPluginInterface $plugin */
+      $plugin = $this->plugins->get($plugin_id);
+      $new_packages = [];
+      foreach ($packages as $package) {
+        $new_packages = array_merge($new_packages, $plugin->splitPackage($package, $shipment));
+      }
+      $packages = array_filter($new_packages);
+    }
+    return $packages;
+  }
+
+  /**
+   * Query plugins for package adjustments.
+   *
+   * @param \NicholasCreativeMedia\FedExPHP\Structs\RequestedPackageLineItem $requested_package_line_item
+   *   Te package line item to be adjusted.
+   * @param array $shipment_items
+   *   The shipment items in the package.
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
+   *   The full shipment.
+   *
+   * @return \NicholasCreativeMedia\FedExPHP\Structs\RequestedPackageLineItem
+   *   The adjusted line item.
+   */
+  protected function adjustPackage(RequestedPackageLineItem $requested_package_line_item, array $shipment_items, ShipmentInterface $shipment) {
+    foreach ($this->fedExServiceManager->getDefinitions() as $plugin_id => $definition) {
+      /** @var \Drupal\commerce_fedex\Plugin\Commerce\FedEx\FedExPluginInterface $plugin */
+      $plugin = $this->plugins->get($plugin_id);
+      $requested_package_line_item = $plugin->adjustPackage($requested_package_line_item, $shipment_items, $shipment);
+    }
+    return $requested_package_line_item;
   }
 
   /**
@@ -765,6 +808,54 @@ class FedEx extends ShippingMethodBase {
     $this->eventDispatcher->dispatch(CommerceFedExEvents::BEFORE_RATE_REQUEST, $rateRequestEvent);
 
     return $rate_request;
+  }
+
+  /**
+   *
+   */
+  protected static function getPackageTotalVolume(array $shipment_items, $volume_unit) {
+    switch ($volume_unit) {
+      case VolumeUnit::CUBIC_CENTIMETER:
+        $linear_unit = PhysicalLengthUnits::CENTIMETER;
+        break;
+
+      case VolumeUnit::CUBIC_INCH:
+        $linear_unit = PhysicalLengthUnits::INCH;
+        break;
+
+      default:
+        throw new \Exception("Invalid Units");
+    }
+    $order_item_storage = \Drupal::entityTypeManager()->getStorage('commerce_order_item');
+    $order_item_ids = [];
+    foreach ($shipment_items as $shipment_item) {
+      $order_item_ids[] = $shipment_item->getOrderItemId();
+    }
+
+    $order_items = $order_item_storage->loadMultiple($order_item_ids);
+
+    $total_volume = 0;
+    foreach ($order_items as $order_item) {
+      /** @var \Drupal\commerce_order\Entity\OrderItem $order_item */
+      /** @var \Drupal\commerce_product\Entity\ProductVariationInterface $purchased_entity */
+      $purchased_entity = $order_item->getPurchasedEntity();
+
+      if ($purchased_entity->hasField('dimensions') && !$purchased_entity->get('dimensions')->isEmpty()) {
+        /** @var \Drupal\physical\Plugin\Field\FieldType\DimensionsItem $dimensions */
+        $dimensions = $purchased_entity->get('dimensions')->first();
+
+        $volume = $dimensions
+          ->getHeight()
+          ->convert($linear_unit)
+          ->multiply($dimensions->getWidth()->convert($linear_unit)->getNumber())
+          ->multiply($dimensions->getLength()->convert($linear_unit)->getNumber())
+          ->getNumber();
+
+        $total_volume += (float) $volume * $order_item->getQuantity();
+      }
+    }
+
+    return new Volume((string) $total_volume, $volume_unit);
   }
 
   /**
@@ -838,7 +929,7 @@ class FedEx extends ShippingMethodBase {
    *
    * @throws \Exception
    */
-  protected function physicalWeightToFedex(PhysicalWeight $weight) {
+  public static function physicalWeightToFedex(PhysicalWeight $weight) {
     if (!$weight instanceof PhysicalWeight) {
       throw new \Exception("Invalid units for weight");
     }
@@ -882,7 +973,7 @@ class FedEx extends ShippingMethodBase {
    *
    * @throws \Exception
    */
-  protected function packageToFedexDimensions(PackageTypeInterface $package) {
+  public static function packageToFedexDimensions(PackageTypeInterface $package) {
     $length = $package->getLength();
     $width = $package->getWidth();
     $height = $package->getHeight();
@@ -983,6 +1074,79 @@ class FedEx extends ShippingMethodBase {
     if ($plugin->getPluginId() == $this->pluginId) {
       $this->setConfiguration($plugin->getConfiguration());
     }
+  }
+
+  /**
+   * Function packageTotalWeight.
+   *
+   * @param array $shipment_items
+   *   An array of shipment items.
+   * @param \Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageTypeInterface $package_type
+   *   The commerce_shipping package type.
+   * @param \Drupal\physical\Weight|null $adjustment
+   *   Any weight adjustment to add or subtract.
+   *
+   * @return \NicholasCreativeMedia\FedExPHP\Structs\Weight
+   *   The total weight of the package.
+   */
+  public static function packageTotalWeight(array $shipment_items, PackageTypeInterface $package_type, $adjustment = NULL) {
+
+    if (empty($shipment_items)) {
+      return new FedexWeight('LB', 0);
+    }
+
+    $storage = \Drupal::entityTypeManager()->getStorage('commerce_order_item');
+    $unit = $storage->load(reset($shipment_items)->getOrderItemId())->getPurchasedEntity()->weight->first()->toMeasurement()->getUnit();
+    $total_weight = new PhysicalWeight("0", $unit);
+    foreach ($shipment_items as $shipment_item) {
+      /* @var ShipmentItem $shipment_item */
+      /* @var \Drupal\commerce_order\Entity\OrderItem $order_item */
+      $order_item = $storage->load($shipment_item->getOrderItemId());
+      $purchased_entity = $order_item->getPurchasedEntity();
+      $order_item_weight = $purchased_entity->weight->first()->toMeasurement()
+        ->convert($unit)
+        ->multiply($order_item->getQuantity());
+      $total_weight = $total_weight->add($order_item_weight);
+    }
+    $total_weight = $total_weight->add($package_type->getWeight()->convert($unit));
+    if ($adjustment) {
+      $total_weight = $total_weight->add($adjustment->convert($unit));
+    }
+    return static::physicalWeightToFedex($total_weight);
+  }
+
+  /**
+   *
+   */
+  public static function calculatePackageCount(RequestedPackageLineItem $requested_package_line_item, array $shipment_items) {
+    $package_volume = static::getFedexPackageVolume($requested_package_line_item->getDimensions());
+    $items_volume = static::getPackageTotalVolume($shipment_items, $package_volume->getUnit());
+
+    if ($package_volume->getNumber() != 0) {
+      return ceil($items_volume->getNumber() / $package_volume->getNumber());
+    }
+    return FALSE;
+
+  }
+
+  /**
+   *
+   */
+  public static function getFedexPackageVolume(Dimensions $dimensions) {
+    $volume_value = $dimensions->getHeight() * $dimensions->getLength() * $dimensions->getWidth();
+    switch ($dimensions->getUnits()) {
+      case LinearUnits::VALUE_CM:
+        $volume_units = VolumeUnit::CUBIC_CENTIMETER;
+        break;
+
+      case LinearUnits::VALUE_IN:
+        $volume_units = VolumeUnit::CUBIC_INCH;
+        break;
+
+      default:
+        throw new \Exception("Invalid Dimensions");
+    }
+    return new Volume((string) $volume_value, $volume_units);
   }
 
 }
