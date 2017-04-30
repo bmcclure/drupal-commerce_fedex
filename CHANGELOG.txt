@@ -1,3 +1,20 @@
+Commerce FedEx 8.x-1.0-alpha1, 2017-04-19
+-----------------------------------------
+#2871115 by bmcclure: Support a multiplier to mark up shipping costs
+#2870942 by bmcclure: Log the response object upon response instead of logging
+  the request again
+#2870856 by bmcclure: Avoid errors if RateRequest::getRates() returning FALSE
+#2861825 by mikeNCM: Add Option Description Annotation to FedEx Plugins
+#2861647 by mikeNCM: Remove services that we don't provide options for
+#2860999 by mikeNCM: Use snake_case for local variables
+#2861378: Implement FedEx Special Services as plugins
+#2860995 by mikeNCM: Add config schema for settings
+#2861731 by mikeNCM: Create Plugin system for submodules to use
+#2860994 by mikeNCM: Remove alters from defaultConfiguration and
+  buildConfigurationForm
+#2861000 by mikeNCM: Rename FedExServiceManager
+by mikeNCM: setting form cleanup
+
 Commerce FedEx 8.x-1.x-dev, 2017-03-15
-------------------------------------
+--------------------------------------
 Initial dev release by mikeNCM and bmcclure

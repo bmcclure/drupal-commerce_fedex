@@ -9,6 +9,7 @@ use Drupal\commerce_fedex\Event\RateRequestEvent;
 use Drupal\commerce_fedex\FedExRequestInterface;
 use Drupal\commerce_fedex\FedExPluginManager;
 use Drupal\commerce_price\Price;
+use Drupal\commerce_price\RounderInterface;
 use Drupal\commerce_shipping\Entity\ShipmentInterface;
 use Drupal\commerce_shipping\PackageTypeManagerInterface;
 use Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageTypeInterface;
@@ -120,6 +121,13 @@ class FedEx extends ShippingMethodBase {
   protected $watchdog;
 
   /**
+   * The price rounder.
+   *
+   * @var \Drupal\commerce_price\RounderInterface
+   */
+  protected $rounder;
+
+  /**
    * The FedEx Connection.
    *
    * @var \Drupal\commerce_fedex\FedExRequestInterface
@@ -145,13 +153,16 @@ class FedEx extends ShippingMethodBase {
    *   The Fedex Request Service.
    * @param \Psr\Log\LoggerInterface $watchdog
    *   Commerce Fedex Logger Channel.
+   * @param \Drupal\commerce_price\RounderInterface $rounder
+   *   The price rounder.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, PackageTypeManagerInterface $package_type_manager, FedExPluginManager $fedex_service_manager, EventDispatcherInterface $event_dispatcher, FedExRequestInterface $fedex_request, LoggerInterface $watchdog) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, PackageTypeManagerInterface $package_type_manager, FedExPluginManager $fedex_service_manager, EventDispatcherInterface $event_dispatcher, FedExRequestInterface $fedex_request, LoggerInterface $watchdog, RounderInterface $rounder) {
     parent::__construct($configuration, $plugin_id, $plugin_definition, $package_type_manager);
     $this->watchdog = $watchdog;
     $this->fedExRequest = $fedex_request;
     $this->fedExServiceManager = $fedex_service_manager;
     $this->eventDispatcher = $event_dispatcher;
+    $this->rounder = $rounder;
     if (empty($this->configuration['plugins'])) {
       $this->configuration['plugins'] = [];
     }
@@ -171,8 +182,8 @@ class FedEx extends ShippingMethodBase {
       $container->get('plugin.manager.commerce_fedex_service'),
       $container->get('event_dispatcher'),
       $container->get('commerce_fedex.fedex_request'),
-      $container->get('logger.channel.commerce_fedex')
-
+      $container->get('logger.channel.commerce_fedex'),
+      $container->get('commerce_price.rounder')
     );
   }
 
@@ -194,6 +205,8 @@ class FedEx extends ShippingMethodBase {
         'rate_request_type' => RateRequestType::VALUE_NONE,
         'dropoff' => DropoffType::VALUE_REGULAR_PICKUP,
         'insurance' => FALSE,
+        'rate_multiplier' => 1.0,
+        'round' => PHP_ROUND_HALF_UP,
         'log' => [],
       ],
       'plugins' => [],
@@ -288,16 +301,37 @@ class FedEx extends ShippingMethodBase {
     ];
     $form['options']['dropoff'] = [
       '#type' => 'select',
-      '#title' => $this->t('Dropoff Type'),
+      '#title' => $this->t('Dropoff type'),
       '#description' => $this->t('Default dropoff/pickup location for your FedEx shipments'),
       '#options' => static::enumToList(DropoffType::getValidValues()),
       '#default_value' => $this->configuration['options']['dropoff'],
     ];
     $form['options']['insurance'] = [
       '#type' => 'checkbox',
-      '#title' => $this->t('Include Insurance'),
+      '#title' => $this->t('Include insurance'),
       '#description' => $this->t('Include insurance value of shippable line items in FedEx rate requests'),
       '#default_value' => $this->configuration['options']['insurance'],
+    ];
+    $form['options']['rate_multiplier'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Rate multiplier'),
+      '#description' => $this->t('A number that each rate returned from FedEx will be multiplied by. For example, enter 1.5 to mark up shipping costs to 150%.'),
+      '#min' => 0.1,
+      '#step' => 0.1,
+      '#size' => 5,
+      '#default_value' => $this->configuration['options']['rate_multiplier'],
+    ];
+    $form['options']['round'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Round type'),
+      '#description' => $this->t('Choose how the shipping rate should be rounded.'),
+      '#options' => [
+        PHP_ROUND_HALF_UP => 'Half up',
+        PHP_ROUND_HALF_DOWN => 'Half down',
+        PHP_ROUND_HALF_EVEN => 'Half even',
+        PHP_ROUND_HALF_ODD => 'Half odd',
+      ],
+      '#default_value' => $this->configuration['options']['round'],
     ];
     $form['options']['log'] = [
       '#type' => 'checkboxes',
@@ -363,6 +397,8 @@ class FedEx extends ShippingMethodBase {
       $this->configuration['options']['rate_request_type'] = $values['options']['rate_request_type'];
       $this->configuration['options']['dropoff'] = $values['options']['dropoff'];
       $this->configuration['options']['insurance'] = $values['options']['insurance'];
+      $this->configuration['options']['rate_multiplier'] = $values['options']['rate_multiplier'];
+      $this->configuration['options']['round'] = $values['options']['round'];
       $this->configuration['options']['log'] = $values['options']['log'];
 
       unset($this->configuration['plugins']);
@@ -415,37 +451,44 @@ class FedEx extends ShippingMethodBase {
 
     $rate_service = $this->fedExRequest->getRateService($this->configuration);
     $rate_request = $this->getRateRequest($rate_service, $shipment);
-
     $this->logRequest('Sending FedEx request.', $rate_request);
-
     $response = $rate_service->getRates($rate_request);
-
-    if (!$response) {
-      /** @var \SoapFault $error */
-      $error = $rate_service->getLastError();
-      $this->logRequest('FedEx sent no response back.', $rate_request, LogLevel::NOTICE, TRUE);
-      return [];
-    }
-    else {
-      $this->logRequest('FedEx response received.', $response);
-    }
-
     $rates = [];
-    if ($response->getHighestSeverity() == 'SUCCESS' || ($response->getHighestSeverity() == 'WARNING' && is_array($response->getRateReplyDetails()))) {
-      foreach ($response->getRateReplyDetails() as $rate_details) {
-        if (in_array($rate_details->getServiceType(), array_keys($this->getServices()))) {
-          $cost = $rate_details
-            ->getRatedShipmentDetails()[0]
-            ->getShipmentRateDetail()
-            ->getTotalNetChargeWithDutiesAndTaxes();
 
-          $rates[] = new ShippingRate(
-            $rate_details->getServiceType(),
-            $this->services[$rate_details->getServiceType()],
-            new Price($cost->getAmount(), $cost->getCurrency())
-          );
+    if ($response) {
+      $this->logRequest('FedEx response received.', $response);
+
+      if ($response->getHighestSeverity() == 'SUCCESS') {
+        $multiplier = (!empty($this->configuration['options']['rate_multiplier']))
+          ? $this->configuration['options']['rate_multiplier']
+          : 1.0;
+        $round = !empty($this->configuration['options']['round'])
+          ? $this->configuration['options']['round']
+          : PHP_ROUND_HALF_UP;
+        foreach ($response->getRateReplyDetails() as $rate_details) {
+          if (in_array($rate_details->getServiceType(), array_keys($this->getServices()))) {
+            $cost = $rate_details
+              ->getRatedShipmentDetails()[0]
+              ->getShipmentRateDetail()
+              ->getTotalNetChargeWithDutiesAndTaxes();
+
+            $price = new Price((string) $cost->getAmount(), $cost->getCurrency());
+            if ($multiplier != 1) {
+              $price = $price->multiply((string) $multiplier);
+            }
+            $price = $this->rounder->round($price, $round);
+
+            $rates[] = new ShippingRate(
+              $rate_details->getServiceType(),
+              $this->services[$rate_details->getServiceType()],
+              $price
+            );
+          }
         }
       }
+    }
+    else {
+      $this->logRequest('FedEx sent no response back.', $rate_request, LogLevel::NOTICE, TRUE);
     }
 
     return $rates;
@@ -693,7 +736,7 @@ class FedEx extends ShippingMethodBase {
           $shipment_item->getDeclaredValue()->getNumber()
         ));
       }
-      // $this->adjustPackage($requested_package_line_item, [$shipment_item], $shipment);.
+      $this->adjustPackage($requested_package_line_item, [$shipment_item], $shipment);
       $requested_package_line_items[] = $requested_package_line_item;
     }
 
@@ -811,9 +854,19 @@ class FedEx extends ShippingMethodBase {
   }
 
   /**
+   * Return the total volume of an array of shipment items in a given unit.
    *
+   * @param array $shipment_items
+   *   The array of shipment items.
+   * @param string $volume_unit
+   *   The volume unit.
+   *
+   * @return \Drupal\physical\Volume
+   *   The total Volume.
+   *
+   * @throws \Exception
    */
-  protected static function getPackageTotalVolume(array $shipment_items, $volume_unit) {
+  protected static function getPackageTotalVolume(array $shipment_items, string $volume_unit = VolumeUnit::CUBIC_CENTIMETER) {
     switch ($volume_unit) {
       case VolumeUnit::CUBIC_CENTIMETER:
         $linear_unit = PhysicalLengthUnits::CENTIMETER;
@@ -1116,7 +1169,15 @@ class FedEx extends ShippingMethodBase {
   }
 
   /**
+   * Determines a package count given package and item volumes.
    *
+   * @param \NicholasCreativeMedia\FedExPHP\Structs\RequestedPackageLineItem $requested_package_line_item
+   *   The package line item containing the fedex package dimensions.
+   * @param array $shipment_items
+   *   The array of shipment items.
+   *
+   * @return bool|float
+   *   The number of needed packages, or False on error.
    */
   public static function calculatePackageCount(RequestedPackageLineItem $requested_package_line_item, array $shipment_items) {
     $package_volume = static::getFedexPackageVolume($requested_package_line_item->getDimensions());
@@ -1130,7 +1191,15 @@ class FedEx extends ShippingMethodBase {
   }
 
   /**
+   * Determine the package volume from a fedex package dimensions item.
    *
+   * @param \NicholasCreativeMedia\FedExPHP\Structs\Dimensions $dimensions
+   *   The fexed package dimensions item.
+   *
+   * @return \Drupal\physical\Volume
+   *   The total package volume.
+   *
+   * @throws \Exception
    */
   public static function getFedexPackageVolume(Dimensions $dimensions) {
     $volume_value = $dimensions->getHeight() * $dimensions->getLength() * $dimensions->getWidth();
