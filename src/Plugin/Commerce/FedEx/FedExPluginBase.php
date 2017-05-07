@@ -116,7 +116,7 @@ abstract class FedExPluginBase extends PluginBase implements ContainerFactoryPlu
   }
 
   /**
-   * @inheritdoc
+   * {@inheritdoc}
    */
   public function splitPackage(array $shipment_items, ShipmentInterface $shipment) {
     return [$shipment_items];

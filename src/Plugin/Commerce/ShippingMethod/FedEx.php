@@ -755,9 +755,16 @@ class FedEx extends ShippingMethodBase {
   protected function getFedExShipment(ShipmentInterface $shipment) {
     $line_items = $this->getRequestedPackageLineItems($shipment);
 
-    $count = ($this->configuration['options']['packaging'] == static::PACKAGE_CALCULATE)
-      ? $line_items[0]->getGroupPackageCount()
-      : count($line_items);
+    if ($this->configuration['options']['packaging'] == static::PACKAGE_CALCULATE) {
+      $count = 0;
+      foreach ($line_items as $line_item) {
+        $count += $line_item->getGroupPackageCount();
+      }
+    }
+    else {
+      $count = count($line_items);
+    }
+
 
     /** @var \Drupal\address\AddressInterface $recipient_address */
     $recipient_address = $shipment->getShippingProfile()->get('address')->first();
