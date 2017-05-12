@@ -2,11 +2,13 @@
 
 namespace Drupal\commerce_fedex\Plugin\Commerce\FedEx;
 
+use Drupal\commerce_shipping\Entity\ShipmentInterface;
 use Drupal\Component\Plugin\PluginBase;
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
+use NicholasCreativeMedia\FedExPHP\Structs\RequestedPackageLineItem;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -94,6 +96,30 @@ abstract class FedExPluginBase extends PluginBase implements ContainerFactoryPlu
    */
   public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
     return $form;
+  }
+
+  /**
+   * Adjust a package based on the items, shipment and profile.
+   *
+   * @param \NicholasCreativeMedia\FedExPHP\Structs\RequestedPackageLineItem $package
+   *   The package to adjust.
+   * @param array $items
+   *   An array of shipment items.
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
+   *   The shipment.
+   *
+   * @return \NicholasCreativeMedia\FedExPHP\Structs\RequestedPackageLineItem
+   *   The adjusted Package.
+   */
+  public function adjustPackage(RequestedPackageLineItem $package, array $items, ShipmentInterface $shipment) {
+    return $package;
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function splitPackage(array $shipment_items, ShipmentInterface $shipment) {
+    return [$shipment_items];
   }
 
 }
