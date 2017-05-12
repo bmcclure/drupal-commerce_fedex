@@ -1,0 +1,7 @@
+commerce_fedex.fedex_plugin.plugin.dangerous:
+  type: commerce_fedex_service
+  label: 'Commerce Fedex Dry Ice Service'
+  mapping:
+    contact_number:
+      type: string
+      label: 'Contact Number'

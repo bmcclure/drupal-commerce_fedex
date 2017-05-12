@@ -48,4 +48,5 @@ class CommerceFedExPlugin extends Plugin {
    * @ingroup plugin_translatable
    */
   public $options_description;
+
 }

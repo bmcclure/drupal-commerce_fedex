@@ -10,4 +10,15 @@ commerce_fedex.fedex_plugin.plugin.dry_ice:
           type: string
           label: 'Package Type'
         weight:
-          type: mapping
+          type: field.value.physical_measurement
+          label: 'Weight'
+    intl:
+       type: mapping
+       label: 'International'
+       mapping:
+         package_type:
+           type: string
+           label: 'Package Type'
+         weight:
+           type: field.value.physical_measurement
+           label: 'Weight'
