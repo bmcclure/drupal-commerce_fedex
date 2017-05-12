@@ -736,12 +736,12 @@ class FedEx extends ShippingMethodBase {
     $requested_package_line_items = [];
 
     foreach ($shipment->getItems() as $delta => $shipment_item) {
+      $qty = $shipment_item->getQuantity();
       $requested_package_line_item = new RequestedPackageLineItem();
-
       $requested_package_line_item
         ->setSequenceNumber($delta + 1)
-        ->setGroupPackageCount(1)
-        ->setWeight($this->physicalWeightToFedex($shipment_item->getWeight()))
+        ->setGroupPackageCount($qty)
+        ->setWeight($this->physicalWeightToFedex($shipment_item->getWeight()->divide($qty)))
         ->setDimensions($this->packageToFedexDimensions($shipment->getPackageType()))
         ->setPhysicalPackaging(PhysicalPackagingType::VALUE_BOX)
         ->setItemDescription($this->getCleanTitle($shipment_item))
@@ -772,9 +772,10 @@ class FedEx extends ShippingMethodBase {
   protected function getFedExShipment(ShipmentInterface $shipment) {
     $line_items = $this->getRequestedPackageLineItems($shipment);
 
-    $count = ($this->configuration['options']['packaging'] == static::PACKAGE_CALCULATE)
-      ? $line_items[0]->getGroupPackageCount()
-      : count($line_items);
+    $count = 0;
+    foreach ($line_items as $index => $line_item) {
+      $count += $line_item->getGroupPackageCount();
+    }
 
     /** @var \Drupal\address\AddressInterface $recipient_address */
     $recipient_address = $shipment->getShippingProfile()->get('address')->first();
