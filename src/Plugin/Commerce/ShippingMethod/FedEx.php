@@ -218,8 +218,6 @@ class FedEx extends ShippingMethodBase {
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
 
-    /* @todo Remove hack when commerce issue  #2859423 is resolved */
-    //   $this->fixConfiguration($form_state);
     $form = parent::buildConfigurationForm($form, $form_state);
 
     // Select all services by default.
@@ -363,8 +361,7 @@ class FedEx extends ShippingMethodBase {
    * {@inheritdoc}
    */
   public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
-    /* @todo Remove hack when commerce issue  #2859423 is resolved */
-    //   $this->fixConfiguration($form_state);
+
     parent::validateConfigurationForm($form, $form_state);
 
     foreach ($this->fedExServiceManager->getDefinitions() as $plugin_id => $definition) {
@@ -380,8 +377,6 @@ class FedEx extends ShippingMethodBase {
    * {@inheritdoc}
    */
   public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
-    /* @todo Remove hack when commerce issue  #2859423 is resolved */
-    // $this->fixConfiguration($form_state);
     if (!$form_state->getErrors()) {
 
       $values = $form_state->getValue($form['#parents']);
