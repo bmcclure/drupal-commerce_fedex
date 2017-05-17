@@ -457,8 +457,26 @@ class FedEx extends ShippingMethodBase {
 
     if ($response) {
       $this->logRequest('FedEx response received.', $response);
+      $allowed_severities = ['SUCCESS', 'NOTE', 'WARNING'];
+      $highest_severity = $response->getHighestSeverity();
+      $severity_map = [
+        'NOTE' => LogLevel::NOTICE,
+        'WARNING' => LogLevel::WARNING,
+        'ERROR' => LogLevel::ERROR,
+        'FAILURE' => LogLevel::ERROR,
+      ];
 
-      if ($response->getHighestSeverity() == 'SUCCESS') {
+      // Log any notifications returned from FedEx.
+      foreach ($response->getNotifications() as $notification) {
+        if (array_key_exists($notification->getSeverity(), $severity_map)) {
+          $this->watchdog->log($severity_map[$notification->getSeverity()], '@message (Code @code)', [
+            '@message' => $notification->getMessage(),
+            '@code' => $notification->getCode(),
+          ]);
+        }
+      }
+
+      if (in_array($highest_severity, $allowed_severities)) {
         $multiplier = (!empty($this->configuration['options']['rate_multiplier']))
           ? $this->configuration['options']['rate_multiplier']
           : 1.0;
