@@ -85,5 +85,5 @@ class FedExRequestTest extends UnitTestCase {
     $this->assertEquals(static::RATE_SERVICE_SERVICE_ID, $version->getServiceId());
     $this->assertEquals(static::RATE_SERVICE_MAJOR_VERSION, $version->getMajor());
   }
-  
+
 }
