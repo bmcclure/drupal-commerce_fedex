@@ -1133,23 +1133,6 @@ class FedEx extends ShippingMethodBase {
   }
 
   /**
-   * Fix for commerce issue #2859423.
-   *
-   * @param \Drupal\Core\Form\FormStateInterface $form_state
-   *   The Form State (needed to get original configuration)
-   */
-  private function fixConfiguration(FormStateInterface $form_state) {
-    /* @todo Remove hack when commerce issue  #2859423 is resolved */
-    $configuration = $this->configuration;
-    unset($configuration['plugins']);
-    /** @var \Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodInterface $plugin */
-    $plugin = $form_state->getFormObject()->getEntity()->getPlugin();
-    if ($plugin->getPluginId() == $this->pluginId) {
-      $this->setConfiguration($plugin->getConfiguration());
-    }
-  }
-
-  /**
    * Function packageTotalWeight.
    *
    * @param array $shipment_items
