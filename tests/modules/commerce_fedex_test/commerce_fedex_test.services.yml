@@ -1,0 +1,4 @@
+services:
+  commerce_fedex.fedex_request:
+    class: Drupal\commerce_fedex_test\TestFedExRequest
+    weight: 100

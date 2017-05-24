@@ -11,7 +11,7 @@ use Drupal\Tests\UnitTestCase;
  * @coversDefaultClass \Drupal\commerce_fedex\FedExRequest
  * @group commerce_fedex
  */
-class FedExRequestTest extends UnitTestCase {
+class FedExRequestTest extends FedExUnitTestBase {
 
   const RATE_SERVICE_SERVICE_ID = 'crs';
   const RATE_SERVICE_MAJOR_VERSION = 20;

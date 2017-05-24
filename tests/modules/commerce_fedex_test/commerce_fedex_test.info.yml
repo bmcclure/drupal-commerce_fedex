@@ -1,0 +1,9 @@
+name: commerce_fedex_test
+type: module
+description: Test services for Commerce Fedex Shipping
+core: 8.x
+package: Testing
+dependencies:
+  - commerce_shipping
+  - commerce_checkout
+  - commerce_fedex
