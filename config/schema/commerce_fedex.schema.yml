@@ -18,7 +18,7 @@ commerce_shipping.commerce_shipping_method.plugin.fedex:
           type: integer
           label: 'Meter number'
         mode:
-          type: label:
+          type: label
           label: 'Choose whether to use the test or live mode.'
     options:
       type: mapping
@@ -37,7 +37,7 @@ commerce_shipping.commerce_shipping_method.plugin.fedex:
           type: boolean
           label: 'Include Insurance'
         log:
-          type: mapping:
+          type: mapping
           label: 'Log the following messages for debugging'
           mapping:
             request:
