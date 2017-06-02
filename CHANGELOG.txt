@@ -5,8 +5,6 @@ Commerce FedEx 8.x-1.0-alpha2, 2017-06-02
 #2877108 by mikeNCM: Live API creds are returning Authentication Failed
   response
 #2871291 by mikeNCM: Remove temporary fix for plugin config issue in commerce
-#2878092 by bmcclure: "Each item in its own box" combines items with a qty
-  higher than 1
 #2877100 by bmcclure: Valid responses with highest severity of "NOTE" or
   "WARNING" should be accepted
 #2861378 by mikeNCM: Implement FedEx Special Services as plugins
