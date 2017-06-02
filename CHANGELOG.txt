@@ -1,3 +1,17 @@
+Commerce FedEx 8.x-1.0-alpha2, 2017-06-02
+-----------------------------------------
+#2881270 by kamkejj: Yaml parsing error in commerce_fedex.schema.yml
+#2876815 by mikeNCM: Create test suite
+#2877108 by mikeNCM: Live API creds are returning Authentication Failed
+  response
+#2871291 by mikeNCM: Remove temporary fix for plugin config issue in commerce
+#2878092 by bmcclure: "Each item in its own box" combines items with a qty
+  higher than 1
+#2877100 by bmcclure: Valid responses with highest severity of "NOTE" or
+  "WARNING" should be accepted
+#2861378 by mikeNCM: Implement FedEx Special Services as plugins
+#2872529 by bmcclure: Add support for rounding the shipping rate
+
 Commerce FedEx 8.x-1.0-alpha1, 2017-04-19
 -----------------------------------------
 #2871115 by bmcclure: Support a multiplier to mark up shipping costs
