@@ -11,12 +11,12 @@ use NicholasCreativeMedia\FedExPHP\Enums\ServiceType;
  * Tests the shipment order processor.
  *
  * @coversDefaultClass \Drupal\commerce_fedex\Plugin\Commerce\ShippingMethod\FedEx
- * @group commerce_shipping
+ * @group commerce_fedex
  */
 class FedExRateTest extends FedExKernelTestBase {
 
   /**
-   * Function testRates.
+   * covers ::calculateRates
    */
   public function testAllInOneRates() {
 

@@ -11,7 +11,7 @@ use Drupal\profile\Entity\Profile;
 use Drupal\Tests\commerce_shipping\Kernel\ShippingKernelTestBase;
 
 /**
- * A class.
+ * Provides a base class for Fedex Kernel tests.
  */
 class FedExKernelTestBase extends ShippingKernelTestBase {
 

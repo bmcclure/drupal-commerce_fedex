@@ -3,7 +3,6 @@
 namespace Drupal\Tests\commerce_fedex\Unit;
 
 use Drupal\commerce_fedex\FedExRequest;
-use Drupal\Tests\UnitTestCase;
 
 /**
  * Test Class for the Fedex Shipping Plugin.
@@ -29,24 +28,6 @@ class FedExRequestTest extends FedExUnitTestBase {
    * @var array
    */
   protected $configuration;
-
-  /**
-   * {@inheritdoc}
-   */
-  protected function setUp() {
-
-    parent::setUp();
-    $this->request = new FedExRequest();
-    $this->configuration = [
-      'api_information' => [
-        'api_key' => 'testkey',
-        'api_password' => 'testpass',
-        'account_number' => '1234567',
-        'meter_number' => '9876543',
-        'mode' => 'test',
-      ],
-    ];
-  }
 
   /**
    * @covers ::getRateRequest
