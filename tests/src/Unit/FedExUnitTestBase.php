@@ -6,9 +6,9 @@ use Drupal\commerce_fedex\FedExRequest;
 use Drupal\Tests\UnitTestCase;
 
 /**
- * A class.
+ * A test base class for FedEx Unit Tests
  */
-class FedExUnitTestBase extends UnitTestCase {
+abstract class FedExUnitTestBase extends UnitTestCase {
 
   /**
    * {@inheritdoc}

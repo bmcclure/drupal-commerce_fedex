@@ -13,7 +13,7 @@ use Drupal\Tests\commerce_shipping\Kernel\ShippingKernelTestBase;
 /**
  * Provides a base class for Fedex Kernel tests.
  */
-class FedExKernelTestBase extends ShippingKernelTestBase {
+abstract class FedExKernelTestBase extends ShippingKernelTestBase {
 
   /**
    * {@inheritdoc}
