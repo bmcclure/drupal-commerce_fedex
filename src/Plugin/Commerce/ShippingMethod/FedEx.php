@@ -886,7 +886,10 @@ class FedEx extends ShippingMethodBase {
    *
    * @throws \Exception
    */
-  protected static function getPackageTotalVolume(array $shipment_items, string $volume_unit = VolumeUnit::CUBIC_CENTIMETER) {
+  protected static function getPackageTotalVolume(array $shipment_items, $volume_unit = NULL) {
+    if ($volume_unit == NULL) {
+      $volume_unit = VolumeUnit::CUBIC_CENTIMETER;
+    }
     switch ($volume_unit) {
       case VolumeUnit::CUBIC_CENTIMETER:
         $linear_unit = PhysicalLengthUnits::CENTIMETER;
@@ -1145,7 +1148,7 @@ class FedEx extends ShippingMethodBase {
    * @return \NicholasCreativeMedia\FedExPHP\Structs\Weight
    *   The total weight of the package.
    */
-  public static function packageTotalWeight(array $shipment_items, PackageTypeInterface $package_type, $adjustment = NULL) {
+  public static function packageTotalWeight(array $shipment_items, PackageTypeInterface $package_type, PhysicalWeight $adjustment = NULL) {
 
     if (empty($shipment_items)) {
       return new FedexWeight('LB', 0);
