@@ -471,7 +471,7 @@ class FedEx extends ShippingMethodBase {
         }
       }
 
-      if (in_array($highest_severity, $allowed_severities)) {
+      if (in_array($highest_severity, $allowed_severities) && is_array($response->getRateReplyDetails())) {
         $multiplier = (!empty($this->configuration['options']['rate_multiplier']))
           ? $this->configuration['options']['rate_multiplier']
           : 1.0;
