@@ -87,12 +87,6 @@ class DangerousGoodsPlugin extends FedExPluginBase {
       if ($this->isHazardous($dangerous_goods)) {
         $commodity = new HazardousCommodityContent();
 
-        $quantityDetail = new HazardousCommodityQuantityDetail();
-        $quantityDetail->setAmount($item->getQuantity());
-        $quantityDetail->setUnits('ml');
-        $quantityDetail->setQuantityType(HazardousCommodityQuantityType::VALUE_NET);
-        $commodity->setQuantity($quantityDetail);
-
         $description = new HazardousCommodityDescription();
         $description->setLabelText($item->getTitle());
         $description->setId($item->getOrderItemId());
