@@ -13,7 +13,6 @@ class TestFedExRequest extends FedExRequest {
    * {@inheritdoc}
    */
   public function getRateService(array $configuration, array $wsdlOptions = [], $resetSoapClient = TRUE) {
-    return parent::getRateService($configuration, $wsdlOptions, $resetSoapClient);
     return new TestRateService();
   }
 
