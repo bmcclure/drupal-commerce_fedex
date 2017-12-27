@@ -6,6 +6,7 @@ use Drupal\address\AddressInterface;
 use Drupal\address\Plugin\Field\FieldType\AddressItem;
 use Drupal\commerce_fedex\Event\CommerceFedExEvents;
 use Drupal\commerce_fedex\Event\RateRequestEvent;
+use Drupal\commerce_fedex\FedExAddressResolver;
 use Drupal\commerce_fedex\FedExRequestInterface;
 use Drupal\commerce_fedex\FedExPluginManager;
 use Drupal\commerce_price\Price;
@@ -66,6 +67,7 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
  * )
  */
 class FedEx extends ShippingMethodBase {
+  use FedExAddressResolver;
 
   /**
    * Constant for Domestic Shipping.
@@ -565,19 +567,28 @@ class FedEx extends ShippingMethodBase {
    *   The address for FedEx.
    */
   protected function getAddressForFedEx(AddressInterface $address) {
-    $party = new Party();
+    $custom_resolver = 'addressResolve' . $address->getCountryCode();
 
-    $party->setAddress(new Address(
-      array_filter([$address->getAddressLine1(), $address->getAddressLine2()]),
-      $address->getLocality(),
-      $address->getAdministrativeArea(),
-      $address->getPostalCode(),
-      NULL,
-      $address->getCountryCode(),
-      NULL,
-      FALSE
-    ));
+    if (method_exists($this, $custom_resolver)) {
+      $party = $this->$custom_resolver($address);
+    }
+    else {
+      $party = new Party();
 
+      $party->setAddress(new Address(
+        array_filter([
+          $address->getAddressLine1(),
+          $address->getAddressLine2(),
+        ]),
+        $address->getLocality(),
+        $address->getAdministrativeArea(),
+        $address->getPostalCode(),
+        NULL,
+        $address->getCountryCode(),
+        NULL,
+        FALSE
+      ));
+    }
     return $party;
   }
 
@@ -777,7 +788,6 @@ class FedEx extends ShippingMethodBase {
     else {
       $count = count($line_items);
     }
-
 
     /** @var \Drupal\address\AddressInterface $recipient_address */
     $recipient_address = $shipment->getShippingProfile()->get('address')->first();
