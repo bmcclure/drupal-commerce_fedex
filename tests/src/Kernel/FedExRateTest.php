@@ -1,11 +1,11 @@
 <?php
 
 namespace Drupal\Tests\commerce_fedex\Kernel;
+
 use Drupal\commerce_fedex\Plugin\Commerce\ShippingMethod\FedEx;
 use NicholasCreativeMedia\FedExPHP\Enums\DropoffType;
 use NicholasCreativeMedia\FedExPHP\Enums\RateRequestType;
 use NicholasCreativeMedia\FedExPHP\Enums\ServiceType;
-
 
 /**
  * Tests the shipment order processor.
@@ -16,7 +16,7 @@ use NicholasCreativeMedia\FedExPHP\Enums\ServiceType;
 class FedExRateTest extends FedExKernelTestBase {
 
   /**
-   * covers ::calculateRates
+   * Covers ::calculateRates.
    */
   public function testAllInOneRates() {
 
@@ -57,4 +57,5 @@ class FedExRateTest extends FedExKernelTestBase {
     $this->assertEquals("8.78", $ground_rate->getAmount()->getNumber());
 
   }
+
 }

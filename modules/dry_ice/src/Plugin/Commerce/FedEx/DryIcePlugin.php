@@ -73,22 +73,23 @@ class DryIcePlugin extends FedExPluginBase {
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
-    return [
-        'domestic' => [
-          'package_type' => 'custom_box',
-          'weight' => [
-            'number' => 0,
-            'unit' => WeightUnit::KILOGRAM,
-          ],
+    $config = [
+      'domestic' => [
+        'package_type' => 'custom_box',
+        'weight' => [
+          'number' => 0,
+          'unit' => WeightUnit::KILOGRAM,
         ],
-        'intl' => [
-          'package_type' => 'custom_box',
-          'weight' => [
-            'number' => 0,
-            'unit' => WeightUnit::KILOGRAM,
-          ],
+      ],
+      'intl' => [
+        'package_type' => 'custom_box',
+        'weight' => [
+          'number' => 0,
+          'unit' => WeightUnit::KILOGRAM,
         ],
-      ] + parent::defaultConfiguration();
+      ],
+    ] + parent::defaultConfiguration();
+    return $config;
   }
 
   /**

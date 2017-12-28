@@ -15,7 +15,8 @@ minimize disruption (we're using it in production already!), but pay
 close attention during upgrades as there may be cases where you will 
 have to reinstall the module.
 
-Please report bugs in the [issue queue](https://www.drupal.org/project/issues/commerce_fedex?version=8.x).
+Please report bugs in the [issue queue]
+(https://www.drupal.org/project/issues/commerce_fedex?version=8.x).
 
 ## Requirements
 

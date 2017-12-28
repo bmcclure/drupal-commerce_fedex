@@ -2,8 +2,6 @@
 
 namespace Drupal\Tests\commerce_fedex\Unit;
 
-use Drupal\commerce_fedex\FedExRequest;
-
 /**
  * Test Class for the Fedex Shipping Plugin.
  *

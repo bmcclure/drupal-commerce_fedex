@@ -6,7 +6,7 @@ use Drupal\commerce_fedex\FedExRequest;
 use Drupal\Tests\UnitTestCase;
 
 /**
- * A test base class for FedEx Unit Tests
+ * A test base class for FedEx Unit Tests.
  */
 abstract class FedExUnitTestBase extends UnitTestCase {
 
@@ -27,4 +27,5 @@ abstract class FedExUnitTestBase extends UnitTestCase {
       ],
     ];
   }
+
 }
