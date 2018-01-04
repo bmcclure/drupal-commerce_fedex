@@ -47,5 +47,32 @@ trait FedExAddressResolver {
 
     return $party;
   }
+  
+  /**
+   * Resolve Addresses in Hong Kong.
+   *
+   * @param \Drupal\address\AddressInterface $address
+   *   The address to resolve.
+   *
+   * @return \NicholasCreativeMedia\FedExPHP\Structs\Party
+   *   A Fedex Compatible party.
+   */
+  public static function addressResolveHK(AddressInterface $address) {
+   
+    $party = new Party();
+    
+    $party->setAddress(new Address(
+      array_filter([$address->getAddressLine1(), $address->getAddressLine2()]),
+      $address->getAdministrativeArea().', '.$address->getLocality(),
+      NULL,
+      $address->getPostalCode(),
+      NULL,
+      $address->getCountryCode(),
+      NULL,
+      FALSE
+    ));
+    
+    return $party;
+  }
 
 }
