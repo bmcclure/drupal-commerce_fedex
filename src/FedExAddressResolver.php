@@ -47,7 +47,7 @@ trait FedExAddressResolver {
 
     return $party;
   }
-  
+
   /**
    * Resolve Addresses in Hong Kong.
    *
@@ -64,6 +64,24 @@ trait FedExAddressResolver {
     $party->setAddress(new Address(
       array_filter([$address->getAddressLine1(), $address->getAddressLine2()]),
       $address->getAdministrativeArea().', '.$address->getLocality(),
+      NULL,
+      $address->getPostalCode(),
+      NULL,
+      $address->getCountryCode(),
+      NULL,
+      FALSE
+    ));
+    
+    return $party;
+  }
+  
+    public static function addressResolveBB(AddressInterface $address) {
+ 
+    $party = new Party();
+    
+    $party->setAddress(new Address(
+      array_filter([$address->getAddressLine1(), $address->getAddressLine2()]),
+      $address->getAdministrativeArea(),
       NULL,
       $address->getPostalCode(),
       NULL,
