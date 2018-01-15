@@ -75,6 +75,15 @@ trait FedExAddressResolver {
     return $party;
   }
   
+  /**
+   * Resolve Addresses in Barbados.
+   *
+   * @param \Drupal\address\AddressInterface $address
+   *   The address to resolve.
+   *
+   * @return \NicholasCreativeMedia\FedExPHP\Structs\Party
+   *   A Fedex Compatible party.
+   */
     public static function addressResolveBB(AddressInterface $address) {
  
     $party = new Party();
