@@ -71,23 +71,14 @@ trait FedExAddressResolver {
       NULL,
       FALSE
     ));
-
+    
     return $party;
   }
-
-  /**
-   * Resolve Addresses in Barbodos.
-   *
-   * @param \Drupal\address\AddressInterface $address
-   *   The address to resolve.
-   *
-   * @return \NicholasCreativeMedia\FedExPHP\Structs\Party
-   *   A Fedex Compatible party.
-   */
-  public static function addressResolveBB(AddressInterface $address) {
-
+  
+    public static function addressResolveBB(AddressInterface $address) {
+ 
     $party = new Party();
-
+    
     $party->setAddress(new Address(
       array_filter([$address->getAddressLine1(), $address->getAddressLine2()]),
       $address->getAdministrativeArea(),
@@ -116,9 +107,9 @@ trait FedExAddressResolver {
     $provinces = [
       'Co. Carlow' => 'N0',
       'Co. Cavan' => 'N1',
-      'Co.  Clare' => 'N2',
+      'Co. Clare' => 'N2',
       'Co. Cork' => ' N3',
-      'Co.  Donegal' => 'N4',
+      'Co. Donegal' => 'N4',
       'Co. Dublin' => 'N5',
       'Co. Galway' => 'N6',
       'Co. Kerry' => 'N7',
