@@ -446,6 +446,10 @@ class FedEx extends ShippingMethodBase {
       return [];
     }
 
+    if (empty($shipment->getPackageType())) {
+      $shipment->setPackageType($this->getDefaultPackageType());
+    }
+
     $rate_service = $this->fedExRequest->getRateService($this->configuration);
     $rate_request = $this->getRateRequest($rate_service, $shipment);
     $this->logRequest('Sending FedEx request.', $rate_request);
