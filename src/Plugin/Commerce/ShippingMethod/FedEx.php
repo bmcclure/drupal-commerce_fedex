@@ -17,6 +17,7 @@ use Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageTypeInterface;
 use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodBase;
 use Drupal\commerce_shipping\ShipmentItem;
 use Drupal\commerce_shipping\ShippingRate;
+use Drupal\Core\Annotation\Translation;
 use Drupal\Core\Form\SubformState;
 use Drupal\Core\Plugin\DefaultLazyPluginCollection;
 use Drupal\physical\Volume;
@@ -62,7 +63,12 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
  *     "INTERNATIONAL_PRIORITY" = @Translation("FedEx International Priority"),
  *     "PRIORITY_OVERNIGHT" = @Translation("FedEx Priority Overnight"),
  *     "SMART_POST" = @Translation("FedEx Smart Post"),
- *     "STANDARD_OVERNIGHT" = @Translation("FedEx Standard Overnight")
+ *     "STANDARD_OVERNIGHT" = @Translation("FedEx Standard Overnight"),
+ *     "FEDEX_1_DAY_FREIGHT" = @Translation("FedEx 1 Day Freight"),
+ *     "FEDEX_2_DAY_FREIGHT" = @Translation("FedEx 2 Day Freight"),
+ *     "FEDEX_3_DAY_FREIGHT" = @Translation("FedEx 3 Day Freight"),
+ *     "FEDEX_FREIGHT_PRIORITY" = @Translation("FedEx Freight Priority"),
+ *     "FEDEX_FREIGHT_ECONOMY" = @Translation("FedEx Freight Economy"),
  *   }
  * )
  */
