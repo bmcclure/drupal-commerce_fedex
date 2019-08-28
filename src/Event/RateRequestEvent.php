@@ -36,6 +36,13 @@ class RateRequestEvent extends Event {
   protected $shipment;
 
   /**
+   * The current FedEx plugin configuration values.
+   *
+   * @var array
+   */
+  protected $configuration;
+
+  /**
    * Constructs a new BeforePackEvent object.
    *
    * @param \NicholasCreativeMedia\FedExPHP\Structs\RateRequest $rate_request
@@ -45,10 +52,11 @@ class RateRequestEvent extends Event {
    * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
    *   The shipment being requested.
    */
-  public function __construct(RateRequest $rate_request, RateService $rate_service, ShipmentInterface $shipment) {
+  public function __construct(RateRequest $rate_request, RateService $rate_service, ShipmentInterface $shipment, $configuration) {
     $this->rateRequest = $rate_request;
     $this->rateService = $rate_service;
     $this->shipment = $shipment;
+    $this->configuration = $configuration;
   }
 
   /**
@@ -118,6 +126,15 @@ class RateRequestEvent extends Event {
   public function setShipment(ShipmentInterface $shipment) {
     $this->shipment = $shipment;
     return $this;
+  }
+
+  /**
+   * Gets the FedEx configuration array.
+   *
+   * @return array
+   */
+  public function getConfiguration() {
+    return $this->configuration;
   }
 
 }

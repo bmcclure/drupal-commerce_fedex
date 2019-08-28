@@ -8,6 +8,8 @@ use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\StringTranslation\StringTranslationTrait;
+use NicholasCreativeMedia\FedExPHP\Services\RateService;
+use NicholasCreativeMedia\FedExPHP\Structs\RateRequest;
 use NicholasCreativeMedia\FedExPHP\Structs\RequestedPackageLineItem;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -121,5 +123,10 @@ abstract class FedExPluginBase extends PluginBase implements ContainerFactoryPlu
   public function splitPackage(array $shipment_items, ShipmentInterface $shipment) {
     return [$shipment_items];
   }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function alterRateRequest(RateRequest $rate_request, RateService $rate_service, ShipmentInterface $shipment, $configuration) {}
 
 }

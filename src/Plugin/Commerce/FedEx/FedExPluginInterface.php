@@ -6,6 +6,8 @@ use Drupal\commerce_shipping\Entity\ShipmentInterface;
 use Drupal\Component\Plugin\ConfigurablePluginInterface;
 use Drupal\Component\Plugin\PluginInspectionInterface;
 use Drupal\Core\Plugin\PluginFormInterface;
+use NicholasCreativeMedia\FedExPHP\Services\RateService;
+use NicholasCreativeMedia\FedExPHP\Structs\RateRequest;
 use NicholasCreativeMedia\FedExPHP\Structs\RequestedPackageLineItem;
 
 /**
@@ -42,5 +44,21 @@ interface FedExPluginInterface extends ConfigurablePluginInterface, PluginFormIn
    *   An array of arrays of shipment items.
    */
   public function splitPackage(array $shipment_items, ShipmentInterface $shipment);
+
+  /**
+   * Function alterRateRequest.
+   *
+   * @param RateRequest $rate_request
+   *   The rate request object.
+   * @param \NicholasCreativeMedia\FedExPHP\Services\RateService $rate_service
+   *   The current rate service object.
+   * @param \Drupal\commerce_shipping\Entity\ShipmentInterface $shipment
+   *   The current shipment object.
+   * @param $configuration
+   *   The FedEx plugin configuration array.
+   *
+   * @return void
+   */
+  public function alterRateRequest(RateRequest $rate_request, RateService $rate_service, ShipmentInterface $shipment, $configuration);
 
 }
