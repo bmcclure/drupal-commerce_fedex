@@ -294,8 +294,8 @@ class FedEx extends ShippingMethodBase {
       '#title' => $this->t('Pricing options'),
       '#description' => $this->t('Select the pricing option to use when requesting a rate quote. Note that discounted rates are only available when sending production requests.'),
       '#options' => [
-        RateRequestType::VALUE_NONE => $this->t('Standard pricing (LIST)'),
-        RateRequestType::VALUE_PREFERRED => $this->t("This FedEx account's discounted pricing (ACCOUNT)"),
+        RateRequestType::VALUE_LIST => $this->t('Standard pricing (LIST)'),
+        RateRequestType::VALUE_NONE => $this->t("This FedEx account's discounted pricing (ACCOUNT)"),
       ],
       '#default_value' => $this->configuration['options']['rate_request_type'],
     ];
@@ -484,24 +484,31 @@ class FedEx extends ShippingMethodBase {
         $round = !empty($this->configuration['options']['round'])
           ? $this->configuration['options']['round']
           : PHP_ROUND_HALF_UP;
-        foreach ($response->getRateReplyDetails() as $rate_details) {
-          if (in_array($rate_details->getServiceType(), array_keys($this->getServices()))) {
-            $cost = $rate_details
-              ->getRatedShipmentDetails()[0]
-              ->getShipmentRateDetail()
-              ->getTotalNetChargeWithDutiesAndTaxes();
+        foreach ($response->getRateReplyDetails() as $rate_reply_details) {
+          if (in_array($rate_reply_details->getServiceType(), array_keys($this->getServices()))) {
+            // Fedex returns both Account and List prices within the same
+            // RatedShipment object. Loop through each Rate Detail to find the
+            // appropriate Account/List rate as configured.
+            foreach ($rate_reply_details->getRatedShipmentDetails() as $rated_shipment) {
+              $rate_details = $rated_shipment->getShipmentRateDetail();
+              $rate_type = strpos($rate_details->getRateType(), 'ACCOUNT') ? RateRequestType::VALUE_NONE : RateRequestType::VALUE_LIST;
+              if ($this->configuration['options']['rate_request_type'] !== $rate_type) {
+                continue;
+              }
 
-            $price = new Price((string) $cost->getAmount(), $cost->getCurrency());
-            if ($multiplier != 1) {
-              $price = $price->multiply((string) $multiplier);
+              $cost = $rate_details->getTotalNetChargeWithDutiesAndTaxes();
+              $price = new Price((string) $cost->getAmount(), $cost->getCurrency());
+              if ($multiplier != 1) {
+                $price = $price->multiply((string) $multiplier);
+              }
+              $price = $this->rounder->round($price, $round);
+
+              $rates[] = new ShippingRate(
+                $rate_reply_details->getServiceType(),
+                $this->services[$rate_reply_details->getServiceType()],
+                $price
+              );
             }
-            $price = $this->rounder->round($price, $round);
-
-            $rates[] = new ShippingRate(
-              $rate_details->getServiceType(),
-              $this->services[$rate_details->getServiceType()],
-              $price
-            );
           }
         }
       }
@@ -806,8 +813,7 @@ class FedEx extends ShippingMethodBase {
       ->setPackageCount($count)
       ->setPreferredCurrency($shipment->getOrder()->getStore()->getDefaultCurrencyCode())
       ->setDropoffType($this->configuration['options']['dropoff'])
-      ->addToRateRequestTypes($this->configuration['options']['rate_request_type'])
-      ->setRateRequestTypes();
+      ->setRateRequestTypes([$this->configuration['options']['rate_request_type']]);
 
     if ($this->configuration['options']['insurance']) {
       $fedex_shipment->setTotalInsuredValue(new Money(
