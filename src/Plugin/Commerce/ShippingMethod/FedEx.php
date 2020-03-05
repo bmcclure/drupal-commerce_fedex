@@ -25,6 +25,7 @@ use Drupal\physical\Weight as PhysicalWeight;
 use Drupal\physical\WeightUnit as PhysicalWeightUnits;
 use Drupal\physical\LengthUnit as PhysicalLengthUnits;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\state_machine\WorkflowManagerInterface;
 use NicholasCreativeMedia\FedExPHP\Enums\DropoffType;
 use NicholasCreativeMedia\FedExPHP\Enums\LinearUnits;
 use NicholasCreativeMedia\FedExPHP\Enums\PhysicalPackagingType;
@@ -147,6 +148,8 @@ class FedEx extends ShippingMethodBase {
    *   The plugin implementation definition.
    * @param \Drupal\commerce_shipping\PackageTypeManagerInterface $package_type_manager
    *   The package type manager.
+   * @param \Drupal\state_machine\WorkflowManagerInterface $workflow_manager
+   *   The workflow manager.
    * @param \Drupal\commerce_fedex\FedExPluginManager $fedex_service_manager
    *   The FedEx Plugin Manager.
    * @param \Symfony\Component\EventDispatcher\EventDispatcherInterface $event_dispatcher
@@ -158,8 +161,9 @@ class FedEx extends ShippingMethodBase {
    * @param \Drupal\commerce_price\RounderInterface $rounder
    *   The price rounder.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, PackageTypeManagerInterface $package_type_manager, FedExPluginManager $fedex_service_manager, EventDispatcherInterface $event_dispatcher, FedExRequestInterface $fedex_request, LoggerInterface $watchdog, RounderInterface $rounder) {
-    parent::__construct($configuration, $plugin_id, $plugin_definition, $package_type_manager);
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, PackageTypeManagerInterface $package_type_manager, WorkflowManagerInterface $workflow_manager, FedExPluginManager $fedex_service_manager, EventDispatcherInterface $event_dispatcher, FedExRequestInterface $fedex_request, LoggerInterface $watchdog, RounderInterface $rounder) {
+    parent::__construct($configuration, $plugin_id, $plugin_definition, $package_type_manager, $workflow_manager);
+
     $this->watchdog = $watchdog;
     $this->fedExRequest = $fedex_request;
     $this->fedExServiceManager = $fedex_service_manager;
@@ -181,6 +185,7 @@ class FedEx extends ShippingMethodBase {
       $plugin_id,
       $plugin_definition,
       $container->get('plugin.manager.commerce_package_type'),
+      $container->get('plugin.manager.workflow'),
       $container->get('plugin.manager.commerce_fedex_service'),
       $container->get('event_dispatcher'),
       $container->get('commerce_fedex.fedex_request'),
@@ -496,6 +501,7 @@ class FedEx extends ShippingMethodBase {
                 continue;
               }
 
+              $service = $this->services[$rate_reply_details->getServiceType()];
               $cost = $rate_details->getTotalNetChargeWithDutiesAndTaxes();
               $price = new Price((string) $cost->getAmount(), $cost->getCurrency());
               if ($multiplier != 1) {
@@ -503,11 +509,11 @@ class FedEx extends ShippingMethodBase {
               }
               $price = $this->rounder->round($price, $round);
 
-              $rates[] = new ShippingRate(
-                $rate_reply_details->getServiceType(),
-                $this->services[$rate_reply_details->getServiceType()],
-                $price
-              );
+              $rates[] = new ShippingRate([
+                'shipping_method_id' => $this->parentEntity->id(),
+                'service' => $service,
+                'amount' => $price,
+              ]);
             }
           }
         }
