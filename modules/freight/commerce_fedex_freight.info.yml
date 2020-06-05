@@ -1,0 +1,7 @@
+name: 'Commerce FedEx: Freight Shipping (Experimental)'
+type: module
+description: 'Provides the ability to get FedEx Freight rates for shipments over 150 lbs. WARNING: Experimental! This module is not ready for use.'
+package: Commerce (shipping)
+core: 8.x
+dependencies:
+  - commerce_fedex
