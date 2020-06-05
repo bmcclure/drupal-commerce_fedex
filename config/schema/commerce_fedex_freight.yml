@@ -1,0 +1,10 @@
+commerce_fedex.fedex_plugin.plugin.freight:
+  type: commerce_fedex_service
+  label: 'Commerce Fedex Freight Service'
+  mapping:
+    default_freight_class:
+      type: string
+      label: 'Default freight class'
+    default_packaging_type:
+      type: string
+      label: 'Default packaging type'

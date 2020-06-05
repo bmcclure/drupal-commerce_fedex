@@ -27,4 +27,13 @@ final class CommerceFedExEvents {
    */
   const BEFORE_PACK = 'commerce_fedex.before_pack';
 
+  /**
+   * Name of the event fired when altering the available shipping services.
+   *
+   * @Event
+   *
+   * @see \Drupal\commerce_fedex\Event\ServicesEvent.php
+   */
+  const SERVICES = 'commerce_fedex.services';
+
 }

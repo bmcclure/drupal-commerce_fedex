@@ -6,6 +6,7 @@ use Drupal\address\AddressInterface;
 use Drupal\address\Plugin\Field\FieldType\AddressItem;
 use Drupal\commerce_fedex\Event\CommerceFedExEvents;
 use Drupal\commerce_fedex\Event\RateRequestEvent;
+use Drupal\commerce_fedex\Event\ServicesEvent;
 use Drupal\commerce_fedex\FedExAddressResolver;
 use Drupal\commerce_fedex\FedExRequestInterface;
 use Drupal\commerce_fedex\FedExPluginManager;
@@ -17,6 +18,7 @@ use Drupal\commerce_shipping\Plugin\Commerce\PackageType\PackageTypeInterface;
 use Drupal\commerce_shipping\Plugin\Commerce\ShippingMethod\ShippingMethodBase;
 use Drupal\commerce_shipping\ShipmentItem;
 use Drupal\commerce_shipping\ShippingRate;
+use Drupal\Core\Annotation\Translation;
 use Drupal\Core\Form\SubformState;
 use Drupal\Core\Plugin\DefaultLazyPluginCollection;
 use Drupal\physical\Volume;
@@ -27,12 +29,18 @@ use Drupal\physical\LengthUnit as PhysicalLengthUnits;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\state_machine\WorkflowManagerInterface;
 use NicholasCreativeMedia\FedExPHP\Enums\DropoffType;
+use NicholasCreativeMedia\FedExPHP\Enums\FreightClassType;
+use NicholasCreativeMedia\FedExPHP\Enums\FreightShipmentRoleType;
 use NicholasCreativeMedia\FedExPHP\Enums\LinearUnits;
+use NicholasCreativeMedia\FedExPHP\Enums\PackagingType;
 use NicholasCreativeMedia\FedExPHP\Enums\PhysicalPackagingType;
 use NicholasCreativeMedia\FedExPHP\Enums\RateRequestType;
+use NicholasCreativeMedia\FedExPHP\Enums\ServiceType;
 use NicholasCreativeMedia\FedExPHP\Services\RateService;
 use NicholasCreativeMedia\FedExPHP\Structs\Address;
 use NicholasCreativeMedia\FedExPHP\Structs\Dimensions;
+use NicholasCreativeMedia\FedExPHP\Structs\FreightShipmentDetail;
+use NicholasCreativeMedia\FedExPHP\Structs\FreightShipmentLineItem;
 use NicholasCreativeMedia\FedExPHP\Structs\Money;
 use NicholasCreativeMedia\FedExPHP\Structs\Party;
 use NicholasCreativeMedia\FedExPHP\Structs\RequestedPackageLineItem;
@@ -174,6 +182,11 @@ class FedEx extends ShippingMethodBase {
     }
 
     $this->updatePlugins()->getPlugins();
+
+    // Allow other modules to alter the available services
+    $servicesEvent = new ServicesEvent($this->services);
+    $this->eventDispatcher->dispatch(CommerceFedExEvents::SERVICES, $servicesEvent);
+    $this->services = $servicesEvent->getServices();
   }
 
   /**
@@ -214,6 +227,7 @@ class FedEx extends ShippingMethodBase {
         'insurance' => FALSE,
         'rate_multiplier' => 1.0,
         'round' => PHP_ROUND_HALF_UP,
+        'service_type' => '',
         'log' => [],
       ],
       'plugins' => [],
@@ -574,6 +588,17 @@ class FedEx extends ShippingMethodBase {
     }, $enums));
   }
 
+  protected function getShipper(AddressInterface $address) {
+    $party = $this->getAddressForFedEx($address);
+
+    if (isset($this->configuration['api_information']['account_number'])) {
+      $accountNumber = $this->configuration['api_information']['account_number'];
+      $party->setAccountNumber($accountNumber);
+    }
+
+    return $party;
+  }
+
   /**
    * Gets a FedEx address object from the provided Drupal address object.
    *
@@ -813,7 +838,7 @@ class FedEx extends ShippingMethodBase {
     $fedex_shipment = new RequestedShipment();
 
     $fedex_shipment
-      ->setShipper($this->getAddressForFedEx($shipper_address))
+      ->setShipper($this->getShipper($shipper_address))
       ->setRecipient($this->getAddressForFedEx($recipient_address))
       ->setRequestedPackageLineItems($line_items)
       ->setPackageCount($count)
@@ -892,8 +917,14 @@ class FedEx extends ShippingMethodBase {
     $rate_request->setRequestedShipment($this->getFedExShipment($shipment));
     $rate_request->setVersion($rate_service->version);
 
+    foreach ($this->fedExServiceManager->getDefinitions() as $plugin_id => $definition) {
+      /** @var \Drupal\commerce_fedex\Plugin\Commerce\FedEx\FedExPluginInterface $plugin */
+      $plugin = $this->plugins->get($plugin_id);
+      $plugin->alterRateRequest($rate_request, $rate_service, $shipment, $this->configuration);
+    }
+
     // Allow other modules to alter the rate request before it's submitted.
-    $rateRequestEvent = new RateRequestEvent($rate_request, $rate_service, $shipment);
+    $rateRequestEvent = new RateRequestEvent($rate_request, $rate_service, $shipment, $this->configuration);
     $this->eventDispatcher->dispatch(CommerceFedExEvents::BEFORE_RATE_REQUEST, $rateRequestEvent);
 
     return $rate_request;
