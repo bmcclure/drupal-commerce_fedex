@@ -2,9 +2,8 @@
 
 namespace Drupal\commerce_fedex_dry_ice\Plugin\Commerce\EntityTrait;
 
-use Drupal\commerce\BundleFieldDefinition;
 use Drupal\commerce\Plugin\Commerce\EntityTrait\EntityTraitBase;
-
+use Drupal\entity\BundleFieldDefinition;
 /**
  * Provides the "fedex_dry_ice" trait.
  *

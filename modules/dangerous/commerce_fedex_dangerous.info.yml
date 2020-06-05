@@ -4,4 +4,4 @@ description: 'Provides the Dangerous Goods special service for FedEx Express. WA
 package: Commerce (shipping)
 core: 8.x
 dependencies:
-  - commerce_fedex
+  - commerce_fedex:commerce_fedex

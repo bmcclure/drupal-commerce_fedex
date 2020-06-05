@@ -3,7 +3,7 @@
 namespace Drupal\commerce_fedex\Plugin\Commerce\FedEx;
 
 use Drupal\commerce_shipping\Entity\ShipmentInterface;
-use Drupal\Component\Plugin\ConfigurablePluginInterface;
+use Drupal\Component\Plugin\ConfigurableInterface;
 use Drupal\Component\Plugin\PluginInspectionInterface;
 use Drupal\Core\Plugin\PluginFormInterface;
 use NicholasCreativeMedia\FedExPHP\Services\RateService;
@@ -15,7 +15,7 @@ use NicholasCreativeMedia\FedExPHP\Structs\RequestedPackageLineItem;
  *
  * @package Drupal\commerce_fedex\Plugin\Commerce\FedEx
  */
-interface FedExPluginInterface extends ConfigurablePluginInterface, PluginFormInterface, PluginInspectionInterface {
+interface FedExPluginInterface extends ConfigurableInterface, PluginFormInterface, PluginInspectionInterface {
 
   /**
    * Function adjustPackage.

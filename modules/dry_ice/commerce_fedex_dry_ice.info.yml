@@ -4,4 +4,4 @@ description: 'Provides the Dry Ice special service for FedEx. WARNING: Experimen
 package: Commerce (shipping)
 core: 8.x
 dependencies:
-  - commerce_fedex
+  - commerce_fedex:commerce_fedex

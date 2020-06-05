@@ -3,9 +3,12 @@
 namespace Drupal\Tests\commerce_fedex\Kernel;
 
 use Drupal\commerce_fedex\Plugin\Commerce\ShippingMethod\FedEx;
+use Drupal\commerce_shipping\Entity\ShippingMethodInterface;
 use NicholasCreativeMedia\FedExPHP\Enums\DropoffType;
 use NicholasCreativeMedia\FedExPHP\Enums\RateRequestType;
 use NicholasCreativeMedia\FedExPHP\Enums\ServiceType;
+use Drupal\commerce_shipping\ShippingRate;
+use Drupal\commerce_price\Price;
 
 /**
  * Tests the shipment order processor.
@@ -44,17 +47,21 @@ class FedExRateTest extends FedExKernelTestBase {
       'default_package_type' => 'custom_box',
       'services' => [ServiceType::VALUE_FEDEX_GROUND],
     ];
+    $shipping_method = $this->prophesize(ShippingMethodInterface::class);
+    $shipping_method->id()->willReturn('123456789');
 
-    /** @var \Drupal\commerce_fedex\Plugin\Commerce\ShippingMethod\FedEx $plugin */
     $plugin = $this->shippingMethodManager->createInstance('fedex', $configuration);
+    assert($plugin instanceof FedEx);
+    $plugin->setParentEntity($shipping_method->reveal());
     $shipment->setPackageType($plugin->getDefaultPackageType());
     $rates = $plugin->calculateRates(reset($shipments));
 
     $this->assertCount(1, $rates);
     $ground_rate = reset($rates);
-    $this->assertInstanceOf('Drupal\commerce_shipping\ShippingRate', $ground_rate);
-    $this->assertInstanceOf('Drupal\commerce_price\Price', $ground_rate->getAmount());
-    $this->assertEquals("8.78", $ground_rate->getAmount()->getNumber());
+    assert($ground_rate instanceof ShippingRate);
+    $this->assertEquals('8.78', $ground_rate->getAmount()->getNumber());
+    $this->assertEquals('8.78', $ground_rate->getOriginalAmount()->getNumber());
+    $this->assertEquals('123456789', $ground_rate->getShippingMethodId());
 
   }
 
