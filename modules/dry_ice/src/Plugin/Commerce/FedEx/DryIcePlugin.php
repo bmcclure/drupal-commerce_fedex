@@ -73,7 +73,7 @@ class DryIcePlugin extends FedExPluginBase {
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
-    return [
+    $config = [
       'domestic' => [
         'package_type' => 'custom_box',
         'weight' => [
@@ -89,6 +89,7 @@ class DryIcePlugin extends FedExPluginBase {
         ],
       ],
     ] + parent::defaultConfiguration();
+    return $config;
   }
 
   /**
@@ -208,12 +209,19 @@ class DryIcePlugin extends FedExPluginBase {
    * @param string $type
    *   The type, 'domestic' or 'intl' depending on the shipping distance.
    *
+   * @throws \Exception
+   *   If the provided $type is not of type 'string'.
+   *
    * @return bool
    *   True if the package is internally consistant.
    */
-  protected function verifyPackage(array $shipment_items, string $type) {
+  protected function verifyPackage(array $shipment_items, $type) {
+    if (!is_string($type)) {
+      $varType = gettype($type);
+      throw new \Exception("Shipment type must be string. $varType given.");
+    }
+
     $dryIceBox = $this->isDryIceBox($shipment_items, $type);
-    $storage = \Drupal::entityTypeManager()->getStorage('commerce_order_item');
     foreach ($shipment_items as $shipment_item) {
       if ($dryIceBox xor $this->isDryIceItem($shipment_item, $type)) {
         return FALSE;
@@ -231,10 +239,18 @@ class DryIcePlugin extends FedExPluginBase {
    * @param string $type
    *   The type, 'domestic' or 'intl' depending on the shipping distance.
    *
+   * @throws \Exception
+   *   If the provided $type is not of type 'string'.
+   *
    * @return bool
    *   True if the package needs dry ice shipping.
    */
-  protected function isDryIceBox(array $shipment_items, string $type) {
+  protected function isDryIceBox(array $shipment_items, $type) {
+    if (!is_string($type)) {
+      $varType = gettype($type);
+      throw new \Exception("Shipment type must be string. $varType given.");
+    }
+
     return $this->isDryIceItem(reset($shipment_items), $type);
   }
 
@@ -246,10 +262,18 @@ class DryIcePlugin extends FedExPluginBase {
    * @param string $type
    *   The type, 'domestic' or 'intl' depending on the shipping distance.
    *
+   * @throws \Exception
+   *   If the provided $type is not of type 'string'.
+   *
    * @return bool
    *   true if the shipment item requires dry ice shipping.
    */
-  protected function isDryIceItem(ShipmentItem $shipment_item, string $type) {
+  protected function isDryIceItem(ShipmentItem $shipment_item, $type) {
+    if (!is_string($type)) {
+      $varType = gettype($type);
+      throw new \Exception("Shipment type must be string. $varType given.");
+    }
+
     $storage = \Drupal::entityTypeManager()->getStorage('commerce_order_item');
     /** @var \Drupal\commerce_order\Entity\OrderItemInterface $order_item */
     $order_item = $storage->load($shipment_item->getOrderItemId());

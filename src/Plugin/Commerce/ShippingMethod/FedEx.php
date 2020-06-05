@@ -6,6 +6,7 @@ use Drupal\address\AddressInterface;
 use Drupal\address\Plugin\Field\FieldType\AddressItem;
 use Drupal\commerce_fedex\Event\CommerceFedExEvents;
 use Drupal\commerce_fedex\Event\RateRequestEvent;
+use Drupal\commerce_fedex\FedExAddressResolver;
 use Drupal\commerce_fedex\FedExRequestInterface;
 use Drupal\commerce_fedex\FedExPluginManager;
 use Drupal\commerce_price\Price;
@@ -24,6 +25,7 @@ use Drupal\physical\Weight as PhysicalWeight;
 use Drupal\physical\WeightUnit as PhysicalWeightUnits;
 use Drupal\physical\LengthUnit as PhysicalLengthUnits;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\state_machine\WorkflowManagerInterface;
 use NicholasCreativeMedia\FedExPHP\Enums\DropoffType;
 use NicholasCreativeMedia\FedExPHP\Enums\LinearUnits;
 use NicholasCreativeMedia\FedExPHP\Enums\PhysicalPackagingType;
@@ -66,6 +68,7 @@ use Symfony\Component\EventDispatcher\EventDispatcherInterface;
  * )
  */
 class FedEx extends ShippingMethodBase {
+  use FedExAddressResolver;
 
   /**
    * Constant for Domestic Shipping.
@@ -145,6 +148,8 @@ class FedEx extends ShippingMethodBase {
    *   The plugin implementation definition.
    * @param \Drupal\commerce_shipping\PackageTypeManagerInterface $package_type_manager
    *   The package type manager.
+   * @param \Drupal\state_machine\WorkflowManagerInterface $workflow_manager
+   *   The workflow manager.
    * @param \Drupal\commerce_fedex\FedExPluginManager $fedex_service_manager
    *   The FedEx Plugin Manager.
    * @param \Symfony\Component\EventDispatcher\EventDispatcherInterface $event_dispatcher
@@ -156,8 +161,9 @@ class FedEx extends ShippingMethodBase {
    * @param \Drupal\commerce_price\RounderInterface $rounder
    *   The price rounder.
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, PackageTypeManagerInterface $package_type_manager, FedExPluginManager $fedex_service_manager, EventDispatcherInterface $event_dispatcher, FedExRequestInterface $fedex_request, LoggerInterface $watchdog, RounderInterface $rounder) {
-    parent::__construct($configuration, $plugin_id, $plugin_definition, $package_type_manager);
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, PackageTypeManagerInterface $package_type_manager, WorkflowManagerInterface $workflow_manager, FedExPluginManager $fedex_service_manager, EventDispatcherInterface $event_dispatcher, FedExRequestInterface $fedex_request, LoggerInterface $watchdog, RounderInterface $rounder) {
+    parent::__construct($configuration, $plugin_id, $plugin_definition, $package_type_manager, $workflow_manager);
+
     $this->watchdog = $watchdog;
     $this->fedExRequest = $fedex_request;
     $this->fedExServiceManager = $fedex_service_manager;
@@ -179,6 +185,7 @@ class FedEx extends ShippingMethodBase {
       $plugin_id,
       $plugin_definition,
       $container->get('plugin.manager.commerce_package_type'),
+      $container->get('plugin.manager.workflow'),
       $container->get('plugin.manager.commerce_fedex_service'),
       $container->get('event_dispatcher'),
       $container->get('commerce_fedex.fedex_request'),
@@ -292,8 +299,8 @@ class FedEx extends ShippingMethodBase {
       '#title' => $this->t('Pricing options'),
       '#description' => $this->t('Select the pricing option to use when requesting a rate quote. Note that discounted rates are only available when sending production requests.'),
       '#options' => [
-        RateRequestType::VALUE_NONE => $this->t('Standard pricing (LIST)'),
-        RateRequestType::VALUE_PREFERRED => $this->t("This FedEx account's discounted pricing (ACCOUNT)"),
+        RateRequestType::VALUE_LIST => $this->t('Standard pricing (LIST)'),
+        RateRequestType::VALUE_NONE => $this->t("This FedEx account's discounted pricing (ACCOUNT)"),
       ],
       '#default_value' => $this->configuration['options']['rate_request_type'],
     ];
@@ -444,6 +451,10 @@ class FedEx extends ShippingMethodBase {
       return [];
     }
 
+    if (empty($shipment->getPackageType())) {
+      $shipment->setPackageType($this->getDefaultPackageType());
+    }
+
     $rate_service = $this->fedExRequest->getRateService($this->configuration);
     $rate_request = $this->getRateRequest($rate_service, $shipment);
     $this->logRequest('Sending FedEx request.', $rate_request);
@@ -478,24 +489,32 @@ class FedEx extends ShippingMethodBase {
         $round = !empty($this->configuration['options']['round'])
           ? $this->configuration['options']['round']
           : PHP_ROUND_HALF_UP;
-        foreach ($response->getRateReplyDetails() as $rate_details) {
-          if (in_array($rate_details->getServiceType(), array_keys($this->getServices()))) {
-            $cost = $rate_details
-              ->getRatedShipmentDetails()[0]
-              ->getShipmentRateDetail()
-              ->getTotalNetChargeWithDutiesAndTaxes();
+        foreach ($response->getRateReplyDetails() as $rate_reply_details) {
+          if (in_array($rate_reply_details->getServiceType(), array_keys($this->getServices()))) {
+            // Fedex returns both Account and List prices within the same
+            // RatedShipment object. Loop through each Rate Detail to find the
+            // appropriate Account/List rate as configured.
+            foreach ($rate_reply_details->getRatedShipmentDetails() as $rated_shipment) {
+              $rate_details = $rated_shipment->getShipmentRateDetail();
+              $rate_type = strpos($rate_details->getRateType(), 'ACCOUNT') ? RateRequestType::VALUE_NONE : RateRequestType::VALUE_LIST;
+              if ($this->configuration['options']['rate_request_type'] !== $rate_type) {
+                continue;
+              }
 
-            $price = new Price((string) $cost->getAmount(), $cost->getCurrency());
-            if ($multiplier != 1) {
-              $price = $price->multiply((string) $multiplier);
+              $service = $this->services[$rate_reply_details->getServiceType()];
+              $cost = $rate_details->getTotalNetChargeWithDutiesAndTaxes();
+              $price = new Price((string) $cost->getAmount(), $cost->getCurrency());
+              if ($multiplier != 1) {
+                $price = $price->multiply((string) $multiplier);
+              }
+              $price = $this->rounder->round($price, $round);
+
+              $rates[] = new ShippingRate([
+                'shipping_method_id' => $this->parentEntity->id(),
+                'service' => $service,
+                'amount' => $price,
+              ]);
             }
-            $price = $this->rounder->round($price, $round);
-
-            $rates[] = new ShippingRate(
-              $rate_details->getServiceType(),
-              $this->services[$rate_details->getServiceType()],
-              $price
-            );
           }
         }
       }
@@ -565,19 +584,28 @@ class FedEx extends ShippingMethodBase {
    *   The address for FedEx.
    */
   protected function getAddressForFedEx(AddressInterface $address) {
-    $party = new Party();
+    $custom_resolver = 'addressResolve' . $address->getCountryCode();
 
-    $party->setAddress(new Address(
-      array_filter([$address->getAddressLine1(), $address->getAddressLine2()]),
-      $address->getLocality(),
-      $address->getAdministrativeArea(),
-      $address->getPostalCode(),
-      NULL,
-      $address->getCountryCode(),
-      NULL,
-      FALSE
-    ));
+    if (method_exists($this, $custom_resolver)) {
+      $party = $this->$custom_resolver($address);
+    }
+    else {
+      $party = new Party();
 
+      $party->setAddress(new Address(
+        array_filter([
+          $address->getAddressLine1(),
+          $address->getAddressLine2(),
+        ]),
+        $address->getLocality(),
+        $address->getAdministrativeArea(),
+        $address->getPostalCode(),
+        NULL,
+        $address->getCountryCode(),
+        NULL,
+        FALSE
+      ));
+    }
     return $party;
   }
 
@@ -778,7 +806,6 @@ class FedEx extends ShippingMethodBase {
       $count = count($line_items);
     }
 
-
     /** @var \Drupal\address\AddressInterface $recipient_address */
     $recipient_address = $shipment->getShippingProfile()->get('address')->first();
     $shipper_address = $shipment->getOrder()->getStore()->getAddress();
@@ -792,8 +819,7 @@ class FedEx extends ShippingMethodBase {
       ->setPackageCount($count)
       ->setPreferredCurrency($shipment->getOrder()->getStore()->getDefaultCurrencyCode())
       ->setDropoffType($this->configuration['options']['dropoff'])
-      ->addToRateRequestTypes($this->configuration['options']['rate_request_type'])
-      ->setRateRequestTypes();
+      ->setRateRequestTypes([$this->configuration['options']['rate_request_type']]);
 
     if ($this->configuration['options']['insurance']) {
       $fedex_shipment->setTotalInsuredValue(new Money(

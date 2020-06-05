@@ -2,9 +2,9 @@
 
 namespace Drupal\commerce_fedex_dangerous\Plugin\Commerce\EntityTrait;
 
-use Drupal\commerce\BundleFieldDefinition;
 use Drupal\commerce\Plugin\Commerce\EntityTrait\EntityTraitBase;
 use Drupal\commerce_fedex\Plugin\Commerce\ShippingMethod\FedEx;
+use Drupal\entity\BundleFieldDefinition;
 use Drupal\Core\Field\FieldStorageDefinitionInterface;
 use NicholasCreativeMedia\FedExPHP\Enums\DangerousGoodsAccessibilityType;
 use NicholasCreativeMedia\FedExPHP\Enums\HazardousCommodityOptionType;

@@ -41,13 +41,25 @@ abstract class FedExKernelTestBase extends ShippingKernelTestBase {
 
   const TEST_METER_NUMBER = "118776757";
 
-  /** @var  \Drupal\commerce_fedex\FedExRequestInterface */
+  /**
+   * The fedex request.
+   *
+   * @var \Drupal\commerce_fedex\FedExRequestInterface
+   */
   protected $fedExRequest;
 
-  /** @var  \Drupal\commerce_shipping\PackerManagerInterface */
+  /**
+   * The Packer Manager.
+   *
+   * @var \Drupal\commerce_shipping\PackerManagerInterface
+   */
   protected $packerManager;
 
-  /** @var  \Drupal\commerce_shipping\ShippingMethodManager */
+  /**
+   * The Shipping Method Manager.
+   *
+   * @var \Drupal\commerce_shipping\ShippingMethodManager
+   */
   protected $shippingMethodManager;
 
   protected $variations;
@@ -125,8 +137,8 @@ abstract class FedExKernelTestBase extends ShippingKernelTestBase {
     $order_item[0]->save();
     $order_item[1]->save();
 
-    /** @var OrderItem $order_item */
-  //  $order_item = $this->reloadEntity($order_item);
+    /** @var \Drupal\commerce_order\Entity\OrderItem $order_item */
+    // $order_item = $this->reloadEntity($order_item);
     $this->order->addItem($order_item[0]);
     $this->order->addItem($order_item[1]);
 
