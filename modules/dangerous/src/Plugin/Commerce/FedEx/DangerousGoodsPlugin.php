@@ -89,7 +89,7 @@ class DangerousGoodsPlugin extends FedExPluginBase {
 
         $description = new HazardousCommodityDescription();
         $description->setLabelText($item->getTitle());
-        $description->setId($item->getOrderItemId());
+        $description->setId((string) $item->getOrderItemId());
         $description->setSequenceNumber(1);
         $description->setPackingGroup(HazardousCommodityPackingGroupType::VALUE_DEFAULT);
         $description->setPackingDetails(new HazardousCommodityPackingDetail(FALSE));
